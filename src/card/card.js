@@ -19,21 +19,25 @@ function cardLayout(config) {
     // Rozvržení vyexportované z aplikace se dá vložit rovnou.
     return Layout.normalize(config.layout);
   }
-  var out = {
-    title: config.title || '',
-    subtitle: config.subtitle || '',
-    weather: config.weather || '',
+  var page = {
+    name: config.title || 'Panel',
     // columns/rows: kolik sekci na radek a kolik rad. Bez nich se
     // rozvrzeni poradi samo podle poctu sekci.
     grid: { cols: config.columns || 0, rows: config.rows || 0 },
     panelGrid: { cols: config.panel_columns || 0 },
-    cards: [], panels: [], ambient: {}, alert: config.alert || null
+    cards: [], panels: []
+  };
+  var out = {
+    title: config.title || '',
+    subtitle: config.subtitle || '',
+    weather: config.weather || '',
+    pages: [page], ambient: {}, alert: config.alert || null
   };
   (config.sections || config.cards || []).forEach(function (s) {
-    out.cards.push({
+    page.cards.push({
       id: s.id, name: s.name, code: s.code, tone: s.tone,
-      // view: gauge (vychozi) | bar | graph | number, hours = okno krivky
-      view: s.view, hours: s.hours,
+      // view: gauge (vychozi) | bar | graph | number | camera
+      view: s.view, hours: s.hours, refresh: s.refresh,
       dial: {
         entity: s.entity, caption: s.caption, unit: s.unit, attribute: s.attribute,
         decimals: s.decimals, min: s.min, max: s.max, levels: s.levels
@@ -41,7 +45,7 @@ function cardLayout(config) {
       meters: s.meters, tiles: s.tiles
     });
   });
-  (config.panels || []).forEach(function (p) { out.panels.push(p); });
+  (config.panels || []).forEach(function (p) { page.panels.push(p); });
   return Layout.normalize(out);
 }
 
@@ -51,8 +55,9 @@ function cardLayout(config) {
  * `entity:` ukazovala budík od 0 do 100 a bez jediného slova.
  */
 function fillFromHass(layout, states) {
-  (layout.cards || []).forEach(function (c) {
+  Layout.allCards(layout).forEach(function (c) {
     if (!c.dial.entity) return;
+    if (c.view === 'camera') return;
     var st = states[c.dial.entity];
     if (!st) return;
     // Rozsah budíku nikdo nezadal - vezmi rozumný podle druhu čidla.
@@ -116,8 +121,9 @@ class HaPanelCard extends HTMLElement {
 
   getCardSize() {
     var rows = 1;
-    (this._layout ? this._layout.cards : []).forEach(function () { rows += 6; });
-    (this._layout ? this._layout.panels : []).forEach(function () { rows += 3; });
+    if (!this._layout) return rows;
+    Layout.allCards(this._layout).forEach(function () { rows += 6; });
+    Layout.allPanels(this._layout).forEach(function () { rows += 3; });
     return rows;
   }
 
@@ -141,6 +147,7 @@ class HaPanelCard extends HTMLElement {
 
   _build() {
     var self = this;
+    if (this._view && this._view.destroy) this._view.destroy();
     var sr = this.shadowRoot;
     sr.innerHTML = '<style>' + CARD_CSS + '</style>'
       + '<div class="panel-root mode-live">'
@@ -159,7 +166,10 @@ class HaPanelCard extends HTMLElement {
       // Dlouhy stisk (a dlazdice nastavena na "Okno s ovladanim") otevre
       // vlastni okno Home Assistanta - v dashboardu je doma a umi vic
       // nez cokoli, co by karta nakreslila sama.
-      onDetail: function (entityId) { self._moreInfo(entityId); }
+      onDetail: function (entityId) { self._moreInfo(entityId); },
+      // Kamera: obrazek z Home Assistanta je na stejnem puvodu jako
+      // dashboard, takze staci adresa z entity_picture.
+      states: function (id) { return self._hass ? self._hass.states[id] : null; }
     });
 
     // Odznak spojení v aplikaci hlásí WebSocket; v Lovelace je spojení
@@ -270,6 +280,7 @@ class HaPanelCard extends HTMLElement {
     if (this._timer) { clearInterval(this._timer); this._timer = null; }
     if (this._ro) { this._ro.disconnect(); this._ro = null; }
     if (this._history) this._history.stop();
+    if (this._view && this._view.destroy) this._view.destroy();
   }
 
   connectedCallback() {

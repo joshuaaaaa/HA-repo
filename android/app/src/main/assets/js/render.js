@@ -274,6 +274,8 @@ var Render = (function () {
     var bindings = [];
     // Krivky se neplni ze stavu, ale z historie - drzi se tedy zvlast.
     var graphs = [];
+    // Opakovane obnovovani snimku z kamer; pri prestavbe se rusi.
+    var timers = [];
     // Prvek, na kterem se prepinaji stavove tridy. V aplikaci je to <body>,
     // v karte pro Lovelace obal karty - jinam se karta sahat nesmi.
     var rootEl = ctx.root || document.body;
@@ -367,24 +369,68 @@ var Render = (function () {
       });
     }
 
-    /* ---------- sekce ----------
-       Trida n1..n6 je vychozi rozvrzeni podle poctu sekci. Kdyz si
-       uzivatel rekne o vlastni pocet sloupcu nebo rad, prebije ji
-       primo nastavenou mrizkou. */
-    var mid = el('div', 'mid n' + Math.min(6, layout.cards.length));
-    applyGrid(mid, layout.grid, layout.cards.length, 3);
-    layout.cards.forEach(function (card, idx) {
-      mid.appendChild(buildCard(card, idx, bind, ctx, graphs));
-    });
-    if (layout.cards.length) host.appendChild(mid);
+    /* ---------- stranky ----------
+       Kazda stranka je jedna obrazovka panelu; prejizdi se mezi nimi
+       prstem. Vsechny se postavi rovnou, takze prechod je jen posun -
+       nic se pri prejeti nedopocitava. */
+    var pages = layout.pages || [];
+    var pagesEl = el('div', 'pages');
+    var pageEls = [];
+    pages.forEach(function (page, pi) {
+      var pe = el('div', 'page');
+      var mid = el('div', 'mid n' + Math.min(6, page.cards.length));
+      applyGrid(mid, page.grid, page.cards.length, 3);
+      page.cards.forEach(function (card, idx) {
+        mid.appendChild(buildCard(card, idx, bind, ctx, graphs, timers));
+      });
+      if (page.cards.length) pe.appendChild(mid);
 
-    /* ---------- spodni panely ---------- */
-    var bot = el('div', 'bot n' + Math.min(4, layout.panels.length));
-    applyGrid(bot, layout.panelGrid, layout.panels.length, 4);
-    layout.panels.forEach(function (p, idx) {
-      bot.appendChild(buildPanel(p, idx, bind, ctx, graphs));
+      var bot = el('div', 'bot n' + Math.min(4, page.panels.length));
+      applyGrid(bot, page.panelGrid, page.panels.length, 4);
+      page.panels.forEach(function (p, idx) {
+        bot.appendChild(buildPanel(p, idx, bind, ctx, graphs));
+      });
+      if (page.panels.length) pe.appendChild(bot);
+
+      pageEls.push({ el: pe, mid: mid, bot: bot, page: page });
+      pagesEl.appendChild(pe);
     });
-    if (layout.panels.length) host.appendChild(bot);
+    host.appendChild(pagesEl);
+
+    /* Tecky stranek - jen kdyz je stranek vic. Zaroven slouzi jako
+       tlacitka, at se da prepnout i bez prejeti prstem. */
+    var dotsEl = null;
+    if (pages.length > 1) {
+      dotsEl = el('div', 'pdots');
+      pages.forEach(function (page, i) {
+        var d = el('i', '');
+        d.title = page.name;
+        d.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (ctx.onPage) ctx.onPage(i);
+        });
+        dotsEl.appendChild(d);
+      });
+      host.appendChild(dotsEl);
+    }
+
+    /** Prepne na stranku: posune pas a rozsviti spravnou tecku. */
+    function showPage(index) {
+      var n = pageEls.length;
+      if (!n) return 0;
+      var i = Math.max(0, Math.min(n - 1, index));
+      pagesEl.style.transform = 'translateX(' + (-i * 100) + '%)';
+      for (var j = 0; j < pageEls.length; j++) {
+        pageEls[j].el.classList.toggle('on', j === i);
+      }
+      if (dotsEl) {
+        for (var k = 0; k < dotsEl.children.length; k++) {
+          dotsEl.children[k].classList.toggle('on', k === i);
+        }
+      }
+      return i;
+    }
+    showPage(0);
 
     /* ---------- klidova obrazovka ----------
        Az ctyri hodnoty ve velkych kruzich. Popisek je uvnitr kruhu nad
@@ -448,7 +494,7 @@ var Render = (function () {
     }
 
     /* ---------- prazdny panel ---------- */
-    if (!layout.cards.length && !layout.panels.length) {
+    if (!Layout.allCards(layout).length && !Layout.allPanels(layout).length) {
       var hint = el('div', 'pane panel anim');
       hint.style.gridColumn = '1 / -1';
       var inner = el('div', 'pempty');
@@ -456,7 +502,8 @@ var Render = (function () {
       hint.appendChild(inner);
       var wrap = el('div', 'mid n1');
       wrap.appendChild(hint);
-      host.insertBefore(wrap, alertBar.nextSibling);
+      if (pageEls.length) pageEls[0].el.appendChild(wrap);
+      else host.insertBefore(wrap, alertBar.nextSibling);
     }
 
     /* ---------- obnova ---------- */
@@ -481,11 +528,13 @@ var Render = (function () {
      * pomeru stran - CSS trida n1..n6 uz jen urcuje vychozi rozlozeni.
      */
     function scale() {
-      fitScale(mid, { cols: columnsOf(mid, layout.cards.length, 3),
-                      rows: rowsOf(mid, layout.cards.length, layout.grid),
-                      refW: 1150, refH: 840, min: 0.34, max: 1.12 });
-      fitScale(bot, { cols: columnsOf(bot, layout.panels.length, 4),
-                      rows: 1, refW: 1150, refH: 0, min: 0.5, max: 1 });
+      pageEls.forEach(function (pg) {
+        fitScale(pg.mid, { cols: columnsOf(pg.mid, pg.page.cards.length, 3),
+                           rows: rowsOf(pg.mid, pg.page.cards.length, pg.page.grid),
+                           refW: 1150, refH: 840, min: 0.34, max: 1.12 });
+        fitScale(pg.bot, { cols: columnsOf(pg.bot, pg.page.panels.length, 4),
+                           rows: 1, refW: 1150, refH: 0, min: 0.5, max: 1 });
+      });
     }
 
     /** Nova historie jedne entity - prekresli vsechny jeji krivky. */
@@ -512,6 +561,13 @@ var Render = (function () {
       redraw: redraw,
       scale: scale,
       badge: badge,
+      /** Zastavi obnovovani kamer - vola se pred prestavbou panelu. */
+      destroy: function () {
+        timers.forEach(function (t) { clearInterval(t); });
+        timers.length = 0;
+      },
+      pages: pageEls.length,
+      showPage: showPage,
       clock: { t: clockT, d: clockD, aTime: aClock, aDate: aDate }
     };
   }
@@ -520,7 +576,7 @@ var Render = (function () {
      Sekce ukazuje jednu hlavni hodnotu - a uzivatel si vybira, jak:
      budikem, sloupcem, krivkou nebo holym cislem. Vsechny ctyri mluvi
      stejne: velke cislo, jednotka a slovo o stavu. */
-  function buildCard(card, idx, bind, ctx, graphs) {
+  function buildCard(card, idx, bind, ctx, graphs, timers) {
     var sec = el('section', 'pane card anim' + toneClass(card.tone));
     sec.style.animationDelay = (0.06 + idx * 0.08) + 's';
 
@@ -552,7 +608,7 @@ var Render = (function () {
     // uprostred, ne nalepena vlevo s prazdnem vedle sebe.
     var solo = !(card.meters && card.meters.length) && !(card.tiles && card.tiles.length);
     var body = el('div', 'cbody' + (solo ? ' solo' : ''));
-    body.appendChild(buildVisual(card, bind, accent, graphs));
+    body.appendChild(buildVisual(card, bind, accent, graphs, ctx, timers));
 
     var right = el('div', 'cright');
     (card.meters || []).forEach(function (m) {
@@ -569,7 +625,7 @@ var Render = (function () {
   }
 
   /* ---------- hlavni hodnota sekce ---------- */
-  function buildVisual(card, bind, accent, graphs) {
+  function buildVisual(card, bind, accent, graphs, ctx, timers) {
     var d = card.dial;
     var view = card.view || 'gauge';
     var nEl = el('div', 'n', '--');
@@ -616,6 +672,54 @@ var Render = (function () {
         draw: function (series) {
           var r = chart.draw(series, card.hours || 6, d.decimals);
           gempty.style.display = r ? 'none' : '';
+        }
+      });
+
+    } else if (view === 'camera') {
+      // Snimek z kamery. Home Assistant posila adresu i s pristupovym
+      // tokenem v atributu entity_picture, takze staci obrazek nacist -
+      // proud videa by na levnem tabletu jen zral proud a pamet.
+      wrap = el('div', 'camw');
+      var img = el('img', 'cam');
+      img.alt = card.name || 'kamera';
+      var camNote = el('div', 'camnote', 'čekám na snímek');
+      wrap.appendChild(img);
+      wrap.appendChild(camNote);
+      var lastSrc = '';
+      var camTimer = null;
+
+      var refreshCam = function (st) {
+        var pic = st && st.attributes ? st.attributes.entity_picture : '';
+        if (!pic) { camNote.style.display = ''; img.style.display = 'none'; return; }
+        var base = (ctx.baseUrl || '').replace(/\/+$/, '');
+        var url = /^https?:/.test(pic) ? pic : base + pic;
+        // Cache-buster: bez nej by prohlizec ukazoval porad tyz snimek.
+        img.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now();
+        lastSrc = url;
+      };
+      img.addEventListener('load', function () {
+        camNote.style.display = 'none';
+        img.style.display = '';
+      });
+      img.addEventListener('error', function () {
+        camNote.textContent = 'snímek se nenačetl';
+        camNote.style.display = '';
+        img.style.display = 'none';
+      });
+
+      setVisual = function () {};
+      bind(d.entity, function (st) {
+        if (!st) { camNote.textContent = 'entita není'; camNote.style.display = ''; return; }
+        if (!lastSrc) refreshCam(st);
+        if (!camTimer) {
+          camTimer = setInterval(function () {
+            // Prekreslovat jen kdyz je stranka videt - zhasnuty nebo
+            // schovany panel nemusi tahat obrazky.
+            if (document.hidden || document.body.classList.contains('oled-off')) return;
+            var cur = ctx.states ? ctx.states(d.entity) : st;
+            refreshCam(cur || st);
+          }, Math.max(2, card.refresh || 10) * 1000);
+          timers.push(camTimer);
         }
       });
 

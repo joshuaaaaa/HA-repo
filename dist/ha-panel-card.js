@@ -8,7 +8,7 @@
 
 var CARD_VERSION = "1.0.0";
 
-var CARD_CSS = "/* ------------------------------------------------------------------\n   Panel pro Home Assistant - jeden vizualni system pro vsechny stavy.\n\n   Navrhovy prostor je pevny (2400 x 1080 na sirku, 1400 x 2000 na vysku)\n   a cela plocha se jen zvetsi na displej tabletu - proto jsou vsechny\n   rozmery v pixelech a na kazdem zarizeni vypadaji stejne.\n\n   Dve pravidla, ktera drzi cely vzhled pohromade:\n     1) Stav nese barvu I SLOVO - nikdy jen barvu.\n     2) Cisla jsou velka natolik, aby se dala precist pres pokoj.\n   ------------------------------------------------------------------ */\n:host{\n --a1:#36d8ff;--a2:#ff8b3e;--a3:#8af5bc;--a4:#c48aff;--a5:#ff5369;\n --good:#8af5bc;--warning:#ffd064;--serious:#ff9863;--critical:#ff5369;\n --void:#000;--pane:#080e14;--rail:#263541;--rail2:#455c6e;\n --ink:#f2f8ff;--ink2:#c0cfda;--muted:#90a5b6;\n --display:'Bahnschrift Condensed','Bahnschrift','Roboto Condensed','Arial Narrow',sans-serif;\n --mono:'Cascadia Mono','Consolas',ui-monospace,monospace;\n}\n*{box-sizing:border-box;margin:0;padding:0}\n\nbody{background:var(--void);color:var(--ink);font-family:var(--display);-webkit-font-smoothing:antialiased;\n -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}\n.bg,.scan{position:absolute;inset:0;pointer-events:none}\n.bg{z-index:0;background:radial-gradient(ellipse at 15% 35%,#06364b80,transparent 48%),radial-gradient(ellipse at 90% 40%,#48200c60,transparent 48%),#020507}\n.scan{z-index:0;opacity:.18;background-image:linear-gradient(#47728c35 1px,transparent 1px),linear-gradient(90deg,#47728c35 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(transparent,#000,transparent)}\n\n/* ---------- plocha ---------- */\n#stage{position:absolute;top:0;left:0;width:2400px;height:1080px;transform-origin:top left;z-index:2;\n display:grid;grid-template-rows:84px 1fr auto;gap:16px;padding:24px 32px}\n.panel-root.is-portrait #stage{width:1400px;height:2000px;grid-template-rows:84px 1fr auto}\n\nheader{display:flex;align-items:center;gap:32px;position:relative;border-bottom:1px solid #324652;padding-bottom:10px}\nheader::after{content:'';position:absolute;bottom:-1px;left:0;width:220px;height:3px;background:var(--a1);box-shadow:0 0 18px #36d8ff60}\n.plate{display:flex;align-items:center;gap:18px;min-width:0}\n.plate .bar{width:48px;height:48px;flex:none;background:linear-gradient(135deg,var(--a1) 0 30%,transparent 30% 42%,var(--a1) 42% 61%,transparent 61% 73%,var(--a2) 73%);clip-path:polygon(18% 0,100% 0,82% 100%,0 100%)}\n.wordmark{font-size:43px;line-height:1;font-weight:800;letter-spacing:6px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.subline{font:16px var(--mono);letter-spacing:3px;color:var(--muted);margin-top:6px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.plate.empty{display:none}\n.badge{display:flex;align-items:center;gap:10px;border:1px solid #3b6358;background:#0c211d;padding:9px 14px;flex:none}\n.badge .led{width:8px;height:8px;background:var(--good);box-shadow:0 0 12px #8af5bc80}\n.badge span{font:18px var(--mono);color:var(--good);letter-spacing:2px;white-space:nowrap}\n.badge.warn{border-color:#6b5426;background:#211a0c}\n.badge.warn .led{background:var(--warning);box-shadow:0 0 12px #ffd06480;animation:breath 1.6s ease-in-out infinite}\n.badge.warn span{color:var(--warning)}\n.badge.bad{border-color:#6b2f34;background:#210d0f}\n.badge.bad .led{background:var(--critical);box-shadow:0 0 12px #ff536980}\n.badge.bad span{color:var(--critical)}\nheader .grow{flex:1}\n.wx{flex:none;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;\n padding-right:26px;margin-right:4px;border-right:1px solid var(--rail)}\n.wx b{font:500 30px var(--display);color:#dcebf6;font-variant-numeric:tabular-nums;white-space:nowrap}\n.wx span{font:15px var(--mono);letter-spacing:2px;color:var(--muted);text-transform:uppercase;white-space:nowrap}\n.clock .t{font:46px/1 var(--mono);letter-spacing:-2px;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}\n.clock .d{font-size:18px;color:var(--muted);letter-spacing:1px;margin-top:5px;text-align:right;white-space:nowrap}\n/* Ozubene kolo: jedina cesta do editoru. Zamerne male a v rohu - panel\n   ma ukazovat data, ne ovladaci prvky. */\n.cog{flex:none;width:52px;height:52px;border:1px solid var(--rail);background:#0a141c;color:#6f8798;\n display:flex;align-items:center;justify-content:center;border-radius:4px}\n.cog svg{width:26px;height:26px;fill:currentColor}\n.cog:active{background:#12212c;color:var(--a1)}\n\n/* ---------- sekce s budikem ----------\n   Cim vic sekci, tim mensi okna - o tom rozhoduje uzivatel. Vsechny\n   rozmery uvnitr sekce se odvozuji od jedineho meritka --k, takze\n   zmensena sekce zustane sama sebou a nerozsype se. */\n.mid{display:grid;gap:16px;min-height:0;--k:1}\n.mid.n1{grid-template-columns:1fr}\n.mid.n2{grid-template-columns:1fr 1fr}\n.mid.n3{grid-template-columns:repeat(3,1fr);--k:.74}\n.mid.n4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;--k:.78}\n/* Pet sekci: tri nahore, dve dole pres pul sirky. */\n.mid.n5{grid-template-columns:repeat(6,1fr);grid-template-rows:1fr 1fr;--k:.62}\n.mid.n5 > *{grid-column:span 2}\n.mid.n5 > *:nth-child(n+4){grid-column:span 3}\n/* Rucne nastavena mrizka: zadne zvlastni pripady, plati presne to,\n   co si uzivatel rekl. */\n.mid.fixed > *,.mid.fixed > *:nth-child(n+4){grid-column:auto}\n.mid.n6{grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;--k:.62}\n.panel-root.is-portrait .mid.n2{grid-template-columns:1fr;grid-template-rows:1fr 1fr}\n.panel-root.is-portrait .mid.n3{grid-template-columns:1fr 1fr;--k:.62}\n.panel-root.is-portrait .mid.n4{grid-template-columns:1fr 1fr;--k:.62}\n.panel-root.is-portrait .mid.n5,.panel-root.is-portrait .mid.n6{grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,1fr);--k:.55}\n.panel-root.is-portrait .mid.n5 > *,.panel-root.is-portrait .mid.n5 > *:nth-child(n+4){grid-column:auto}\n.pane{position:relative;min-height:0;border:1px solid var(--rail);background:var(--pane);border-radius:4px 28px 4px 4px;overflow:hidden}\n.card{--accent:var(--a1);--rgb:54,216,255;display:flex;flex-direction:column;\n padding:calc(20px*var(--k)) calc(28px*var(--k)) calc(14px*var(--k));\n border-color:rgba(var(--rgb),.42);background:radial-gradient(ellipse at 22% 48%,rgba(var(--rgb),.13),transparent 62%),linear-gradient(120deg,#0b141d,#05090d 80%)}\n.card.t-amber{--accent:var(--a2);--rgb:255,139,62}\n.card.t-green{--accent:var(--a3);--rgb:138,245,188}\n.card.t-violet{--accent:var(--a4);--rgb:196,138,255}\n.card.t-red{--accent:var(--a5);--rgb:255,83,105}\n.card::before{content:'';position:absolute;top:0;left:0;width:48%;height:4px;background:var(--accent);box-shadow:0 0 24px rgba(var(--rgb),.6)}\n.card::after{content:'';position:absolute;right:18px;bottom:15px;width:68px;height:9px;background:repeating-linear-gradient(120deg,var(--accent) 0 4px,transparent 4px 10px);opacity:.45}\n.chead{display:flex;align-items:center;gap:calc(16px*var(--k));height:calc(65px*var(--k));flex:none;\n border-bottom:1px solid rgba(var(--rgb),.19);padding-bottom:calc(12px*var(--k))}\n.chead .id{font:calc(19px*var(--k)) var(--mono);color:var(--accent);border:1px solid rgba(var(--rgb),.4);\n padding:calc(8px*var(--k)) calc(10px*var(--k));background:rgba(var(--rgb),.06)}\n.chead .nm{font-size:calc(44px*var(--k));font-weight:800;letter-spacing:calc(5px*var(--k));color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.chead .part{margin-left:auto;max-width:52%;font-size:calc(22px*var(--k));letter-spacing:1px;text-transform:uppercase;color:#b6c8d6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.cbody{display:flex;align-items:stretch;gap:calc(24px*var(--k));flex:1;min-height:0}\n.c.panel-root.solo{justify-content:center}\n/* Budik si vezme celou vysku sekce a zustane kulaty. Starsi WebView bez\n   aspect-ratio dostane pevny rozmer - panel tam vypada jako driv. */\n.gw{position:relative;flex:none;width:calc(520px*var(--k));height:calc(520px*var(--k));color:var(--accent);\n max-height:100%;align-self:center}\n@supports (aspect-ratio:1){\n  .gw{width:auto;height:100%;aspect-ratio:1;max-height:calc(640px*var(--k));min-width:calc(300px*var(--k))}\n}\n.gw::before{content:'';position:absolute;inset:48px;border-radius:50%;background:radial-gradient(circle,rgba(var(--rgb),.08),transparent 69%);box-shadow:inset 0 0 36px rgba(var(--rgb),.06)}\n.gw svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}\n.gw .dial-frame{fill:none;stroke:var(--accent);stroke-width:.6;opacity:.35}\n.gw .dial-ticks{fill:none;stroke:var(--accent);stroke-width:3;stroke-dasharray:.6 9.5;opacity:.5}\n.gw .dial-core{fill:none;stroke:var(--accent);stroke-width:.6;opacity:.2}\n.gw .dial-caption{font:10px var(--mono);letter-spacing:2px;fill:var(--accent);opacity:.75}\n.gv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:9px}\n.gv .cap{font:calc(19px*var(--k)) var(--mono);letter-spacing:calc(5px*var(--k));color:#99b2c4;margin-bottom:calc(20px*var(--k));text-transform:uppercase}\n.gv .n{font:700 calc(216px*var(--k))/.85 var(--display);letter-spacing:calc(-10px*var(--k));color:#d6e1e8;font-variant-numeric:tabular-nums}\n.gv .n.txt{font-size:calc(92px*var(--k));letter-spacing:-2px;text-align:center;padding:0 24px;line-height:1.05}\n.gv .u{font:calc(28px*var(--k)) var(--mono);color:var(--accent);margin-top:calc(14px*var(--k));letter-spacing:1px;min-height:calc(28px*var(--k))}\n.gv .st{font-size:calc(23px*var(--k));font-weight:700;letter-spacing:2px;margin-top:calc(19px*var(--k));padding:calc(5px*var(--k)) calc(12px*var(--k));background:#020609b0;border:1px solid currentColor}\n.cright{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;\n gap:calc(30px*var(--k));padding:0 0 calc(12px*var(--k))}\n.cright:empty{display:none}\n\n/* ---------- ukazatele a dlazdice ---------- */\n.meter .lbl{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:calc(12px*var(--k));white-space:nowrap}\n.meter .k{font-size:calc(26px*var(--k));letter-spacing:1px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}\n.meter .k b{margin-left:calc(14px*var(--k));font:700 calc(20px*var(--k)) var(--display);letter-spacing:2px;text-transform:uppercase}\n.meter .v{font:500 calc(50px*var(--k)) var(--display);letter-spacing:-1px;font-variant-numeric:tabular-nums}\n.track{height:calc(24px*var(--k));position:relative;background:#010406;border:1px solid #344753;padding:3px;overflow:hidden}\n.fill{height:100%;width:0;transition:width .5s ease;mask-image:repeating-linear-gradient(90deg,#000 0 10px,transparent 10px 15px);-webkit-mask-image:repeating-linear-gradient(90deg,#000 0 10px,transparent 10px 15px)}\n.mnote{display:flex;justify-content:space-between;align-items:baseline;gap:14px;margin-top:11px;font:20px var(--mono);color:#829baa;white-space:nowrap}\n.mnote span{overflow:hidden;text-overflow:ellipsis}\n/* Dlazdice se skladaji podle toho, kolik je mista - v uzke sekci na\n   tabletu na vysku radeji jedna pod druhou nez orezana cisla. */\n.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(calc(190px*var(--k)),1fr));gap:calc(18px*var(--k));margin-top:4px}\n.tiles .tile{border-top:1px solid rgba(var(--rgb),.3);background:linear-gradient(rgba(var(--rgb),.06),transparent);\n padding:calc(18px*var(--k)) 8px calc(10px*var(--k)) calc(12px*var(--k));min-width:0}\n.tile .k{font-size:calc(24px*var(--k));letter-spacing:1px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.tile .v{font:600 calc(57px*var(--k))/1.1 var(--display);letter-spacing:-1px;margin-top:calc(8px*var(--k));white-space:nowrap;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}\n.tile .v.txt{font-size:calc(38px*var(--k))}\n.tile .v small{font-size:calc(25px*var(--k));font-weight:400;color:var(--muted);margin-left:8px;letter-spacing:0}\n\n/* ---------- sloupec, krivka, holé číslo ----------\n   Tri dalsi zpusoby, jak ukazat tutez hodnotu. Sloupec se cte stejne\n   jako budik (kolik je z rozsahu), krivka ukaze, kam to smeruje, a holé\n   číslo je pro veliciny, u kterych zadny rozsah nedava smysl. */\n.barw{position:relative;flex:none;display:flex;align-items:stretch;gap:calc(18px*var(--k));height:100%;padding:calc(8px*var(--k)) 0}\n.barw .bcol{position:relative;width:calc(150px*var(--k));flex:none;display:flex;flex-direction:column-reverse;gap:calc(4px*var(--k));\n background:#010406;border:1px solid #2b3d49;padding:calc(5px*var(--k))}\n.barw .bseg{flex:1;background:#141d28;transition:background .4s}\n.barw .bside{display:flex;flex-direction:column;justify-content:center;min-width:0}\n.barw .cap{font:calc(19px*var(--k)) var(--mono);letter-spacing:calc(4px*var(--k));color:#99b2c4;text-transform:uppercase;margin-bottom:calc(10px*var(--k))}\n.barw .n{font:700 calc(150px*var(--k))/.85 var(--display);letter-spacing:calc(-6px*var(--k));color:#d6e1e8;font-variant-numeric:tabular-nums}\n.barw .n.txt{font-size:calc(70px*var(--k));letter-spacing:-2px}\n.barw .u{font:calc(26px*var(--k)) var(--mono);color:var(--accent);margin-top:calc(10px*var(--k))}\n.barw .st{align-self:flex-start;font-size:calc(22px*var(--k));font-weight:700;letter-spacing:2px;margin-top:calc(16px*var(--k));\n padding:calc(5px*var(--k)) calc(12px*var(--k));background:#020609b0;border:1px solid currentColor}\n.barw .ends{position:absolute;right:calc(-2px*var(--k));top:0;bottom:0;display:none}\n\n.numw{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center}\n.numw .cap{font:calc(19px*var(--k)) var(--mono);letter-spacing:calc(5px*var(--k));color:#99b2c4;text-transform:uppercase;margin-bottom:calc(14px*var(--k))}\n.numw .n{font:700 calc(230px*var(--k))/.85 var(--display);letter-spacing:calc(-10px*var(--k));color:#d6e1e8;font-variant-numeric:tabular-nums}\n.numw .n.txt{font-size:calc(96px*var(--k));letter-spacing:-2px;text-align:center}\n.numw .u{font:calc(30px*var(--k)) var(--mono);color:var(--accent);margin-top:calc(12px*var(--k))}\n.numw .st{font-size:calc(23px*var(--k));font-weight:700;letter-spacing:2px;margin-top:calc(18px*var(--k));\n padding:calc(5px*var(--k)) calc(12px*var(--k));background:#020609b0;border:1px solid currentColor}\n\n.graphw{flex:1;min-width:0;display:flex;flex-direction:column;height:100%;padding:calc(6px*var(--k)) 0 0}\n.graphw .ghead{display:flex;align-items:baseline;gap:calc(16px*var(--k));flex:none}\n.graphw .cap{font:calc(18px*var(--k)) var(--mono);letter-spacing:calc(4px*var(--k));color:#99b2c4;text-transform:uppercase}\n.graphw .n{font:700 calc(110px*var(--k))/.9 var(--display);letter-spacing:calc(-4px*var(--k));color:#d6e1e8;font-variant-numeric:tabular-nums}\n.graphw .n.txt{font-size:calc(56px*var(--k));letter-spacing:-1px}\n.graphw .u{font:calc(24px*var(--k)) var(--mono);color:var(--accent)}\n.graphw .st{margin-left:auto;font-size:calc(21px*var(--k));font-weight:700;letter-spacing:2px;\n padding:calc(4px*var(--k)) calc(10px*var(--k));background:#020609b0;border:1px solid currentColor}\n.graphw .gbox{flex:1;min-height:calc(120px*var(--k));position:relative;margin-top:calc(10px*var(--k))}\n.graphw .span{display:flex;justify-content:space-between;flex:none;margin-top:calc(6px*var(--k));\n font:calc(17px*var(--k)) var(--mono);color:#6f8798;letter-spacing:1px}\n\n.gempty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;\n font:calc(20px*var(--k)) var(--mono);color:#4e6373;letter-spacing:2px}\n\n/* Krivka v dlazdici a v ukazateli - jen tvar, bez popisku. */\n.spark{height:calc(46px*var(--k));position:relative;margin-top:calc(6px*var(--k))}\n.lt .spark{height:calc(52px*var(--k))}\n\n/* ---------- spodni panely ---------- */\n.bot{display:grid;gap:16px;min-height:0;--k:1}\n.bot.n1{grid-template-columns:1fr}\n.bot.n2{grid-template-columns:1fr 1fr}\n.bot.n3{grid-template-columns:repeat(3,1fr);--k:.85}\n.bot.n4{grid-template-columns:repeat(4,1fr);--k:.72}\n.panel-root.is-portrait .bot.n2{grid-template-columns:1fr 1fr;--k:.8}\n.panel-root.is-portrait .bot.n3,.panel-root.is-portrait .bot.n4{grid-template-columns:1fr 1fr;--k:.7}\n.panel{display:flex;flex-direction:column;padding:calc(18px*var(--k)) calc(26px*var(--k)) calc(16px*var(--k));\n background:linear-gradient(120deg,#0b151b,#050a0e);min-height:calc(248px*var(--k))}\n.ptitle{font:500 calc(21px*var(--k)) var(--display);color:#adc0cf;letter-spacing:3px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.ptitle::before{content:'';display:inline-block;width:5px;height:16px;background:var(--accent,var(--a3));margin-right:12px;vertical-align:-1px}\n.chead2{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:8px}\n.panel{--accent:var(--a3);--rgb:138,245,188}\n.panel.t-cyan{--accent:var(--a1);--rgb:54,216,255}\n.panel.t-amber{--accent:var(--a2);--rgb:255,139,62}\n.panel.t-violet{--accent:var(--a4);--rgb:196,138,255}\n.panel.t-red{--accent:var(--a5);--rgb:255,83,105}\n.psrc{font:18px var(--mono);letter-spacing:2px;color:var(--muted);white-space:nowrap}\n.prow{flex:1;min-height:0;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:22px;align-content:start}\n.prow.c3{grid-auto-flow:row;grid-template-columns:repeat(3,1fr)}\n.prow.wrap{grid-auto-flow:row;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}\n.lt{position:relative;border-top:1px solid rgba(var(--rgb),.3);background:linear-gradient(rgba(var(--rgb),.06),transparent);padding:12px 12px 6px;min-width:0}\n.lt.act{border-top-width:3px}\n.lt.act::after{content:'';position:absolute;right:10px;top:10px;width:9px;height:9px;background:var(--accent);opacity:.5}\n.lt.on{background:linear-gradient(rgba(var(--rgb),.22),rgba(var(--rgb),.04))}\n.lt:active{background:rgba(var(--rgb),.3)}\n.lt .lk{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:calc(24px*var(--k));letter-spacing:1px;color:var(--muted);white-space:nowrap}\n.lt .lk span{overflow:hidden;text-overflow:ellipsis}\n.lt .lst{flex:none;font-size:calc(19px*var(--k));font-weight:700;letter-spacing:2px;text-transform:uppercase}\n.lt .lv{font:600 calc(62px*var(--k))/1.05 var(--display);letter-spacing:-1px;margin:2px 0 calc(6px*var(--k));font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.lt .lv.txt{font-size:calc(40px*var(--k));letter-spacing:0}\n.lt .lv small{font-size:calc(24px*var(--k));font-weight:400;color:var(--muted);margin-left:8px;letter-spacing:1px}\n.lt .track{height:calc(18px*var(--k))}\n.lt .lr{font:calc(20px*var(--k)) var(--mono);color:#829baa;margin-top:calc(8px*var(--k));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.pempty{flex:1;display:flex;align-items:center;justify-content:center;font:22px var(--mono);letter-spacing:2px;color:#5f7686;text-align:center;padding:12px}\n\n/* ---------- krivka: stupnice, bod posledni hodnoty ---------- */\n.chartbox{position:absolute;inset:0}\n.chartbox.scaled{left:calc(58px*var(--k));bottom:calc(26px*var(--k))}\n.chart{position:absolute;inset:0;width:100%;height:100%;overflow:visible}\n.chart .grid{stroke:#24323d;stroke-width:1;vector-effect:non-scaling-stroke}\n.chart .area{fill:rgba(var(--rgb),.16)}\n.chart .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}\n/* Bod je HTML, ne SVG - v roztazene soustave by z kolecka byl oval. */\n.cdot{position:absolute;width:calc(14px*var(--k));height:calc(14px*var(--k));margin:calc(-7px*var(--k)) 0 0 calc(-7px*var(--k));\n border-radius:50%;background:var(--accent);box-shadow:0 0 calc(14px*var(--k)) rgba(var(--rgb),.9)}\n.cy{position:absolute;right:100%;top:0;bottom:0;width:calc(54px*var(--k));pointer-events:none}\n.cy span{position:absolute;right:calc(8px*var(--k));transform:translateY(-50%);\n font:calc(17px*var(--k)) var(--mono);color:#6f8798;letter-spacing:.5px;white-space:nowrap}\n.cx{position:absolute;left:0;right:0;top:100%;display:flex;justify-content:space-between;\n font:calc(17px*var(--k)) var(--mono);color:#6f8798;letter-spacing:1px;padding-top:calc(5px*var(--k))}\n.spark .chartbox{inset:0}\n.spark .cdot{width:calc(9px*var(--k));height:calc(9px*var(--k));margin:calc(-4.5px*var(--k)) 0 0 calc(-4.5px*var(--k))}\n.spark .chart .grid{display:none}\n\n/* ---------- pruh upozorneni (misto zahlavi) ---------- */\n#alert{position:absolute;top:24px;left:32px;right:32px;height:84px;z-index:6;display:flex;align-items:center;gap:24px;\n padding:15px 26px;background:linear-gradient(100deg,#103448,#08131d);border:1px solid #36d8ff80;border-left:5px solid var(--a1);\n transform:translateY(-150%);opacity:0;transition:transform .5s ease,opacity .4s;pointer-events:none}\n.panel-root.alert #alert{transform:none;opacity:1}\n.panel-root.alert header{visibility:hidden}\n#alert .al{display:flex;align-items:center;gap:12px;white-space:nowrap;font-size:26px;letter-spacing:2px;font-weight:700;color:var(--a1);text-transform:uppercase}\n#alert .al i{width:10px;height:10px;background:var(--a1);animation:breath 1.6s ease-in-out infinite}\n#alert .at{flex:1;min-width:40px;height:18px;background:#030b11;position:relative;overflow:hidden}\n#alert .af{width:0;height:100%;background:var(--a1);transition:width .45s;mask-image:repeating-linear-gradient(90deg,#000 0 10px,transparent 10px 15px)}\n#alert .ap{font:600 43px var(--display);min-width:140px;text-align:right;white-space:nowrap}\n#alert .ap small{font-size:23px;margin-left:6px;color:var(--muted)}\n#alert.text .at,#alert.text .ap{display:none}\n#alert .am{font-size:24px;color:var(--ink2);white-space:nowrap;text-align:right;overflow:hidden;text-overflow:ellipsis}\n\n/* ---------- klidovy rezim ---------- */\n#organism{position:absolute;left:0;top:0;width:100%;height:100%;z-index:1;pointer-events:none;opacity:0;transition:opacity 1.8s}\n.panel-root.mode-ambient #organism{opacity:.28}\n#ambient{position:absolute;inset:0;z-index:4;display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px 80px 36px}\n.panel-root.mode-ambient #ambient{display:flex;opacity:.5;animation:ambIn 1.2s ease both,ambientTravel 173s ease-in-out infinite alternate}\n.panel-root.mode-ambient header,.panel-root.mode-ambient .mid,.panel-root.mode-ambient .bot,.panel-root.mode-ambient #alert{display:none}\n.panel-root.mode-ambient .bg,.panel-root.mode-ambient .scan{display:none}\n#ambient .aclock{font:500 190px/1 var(--display);letter-spacing:1px;color:#eef7ff;font-variant-numeric:tabular-nums}\n#ambient .adate{font-size:32px;letter-spacing:6px;color:#7f9db1;margin-top:8px;text-transform:uppercase}\n/* Kruhu muze byt az ctyri - cim vic jich je, tim mensi, a v uzkem\n   prostoru se prelomi do dvou rad. --ak je jejich meritko. */\n#ambient .arow{--ak:1;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;\n gap:40px 90px;margin-top:30px;max-width:100%}\n#ambient .arow.c3{--ak:.8}\n#ambient .arow.c4{--ak:.72}\n#ambient .acell{--accent:var(--a1);--rgb:54,216,255;position:relative;flex:none;\n width:calc(460px*var(--ak));height:calc(460px*var(--ak));display:flex;flex-direction:column;\n align-items:center;justify-content:center;border-radius:50%;\n background:radial-gradient(circle,rgba(var(--rgb),.08),#02070bb0 57%,transparent 68%)}\n#ambient .acell:nth-child(2){--accent:var(--a2);--rgb:255,139,62}\n#ambient .acell:nth-child(3){--accent:var(--a3);--rgb:138,245,188}\n#ambient .acell:nth-child(4){--accent:var(--a4);--rgb:196,138,255}\n#ambient .acell::before{content:'';position:absolute;inset:0;border-radius:50%;border:3px solid rgba(var(--rgb),.3);border-top:5px solid var(--accent);border-bottom:5px solid var(--accent);transform:rotate(-35deg);box-shadow:0 0 35px rgba(var(--rgb),.1),inset 0 0 35px rgba(var(--rgb),.08)}\n#ambient .acell::after{content:'';position:absolute;inset:16px;border-radius:50%;border:1px dashed rgba(var(--rgb),.4);pointer-events:none}\n/* Popisek zustava UVNITR kruhu: dlouhy nazev entity driv pretekl pres\n   sousedni budik. Co se nevejde, konci trema teckami. */\n#ambient .alabel{max-width:66%;font-size:calc(28px*var(--ak));font-weight:700;\n letter-spacing:calc(5px*var(--ak));color:var(--accent);margin-bottom:calc(10px*var(--ak));\n text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}\n#ambient .aval{font:700 calc(200px*var(--ak))/.9 var(--display);letter-spacing:calc(-8px*var(--ak));\n color:#d6e1e8;font-variant-numeric:tabular-nums;max-width:86%;overflow:hidden;text-overflow:ellipsis}\n/* Delsi cislo = mensi pismo, at se vejde do kruhu cele. */\n#ambient .aval.l4{font-size:calc(150px*var(--ak));letter-spacing:calc(-5px*var(--ak))}\n#ambient .aval.l5{font-size:calc(122px*var(--ak));letter-spacing:calc(-4px*var(--ak))}\n#ambient .aval.l6{font-size:calc(104px*var(--ak));letter-spacing:calc(-3px*var(--ak))}\n#ambient .aval.l7{font-size:calc(88px*var(--ak));letter-spacing:calc(-2px*var(--ak))}\n#ambient .aval.txt{font-size:calc(74px*var(--ak));letter-spacing:0;text-align:center;white-space:nowrap}\n#ambient .aunit{font:calc(31px*var(--ak)) var(--mono);color:var(--accent);margin-top:calc(8px*var(--ak));min-height:calc(31px*var(--ak))}\n#ambient .astate{max-width:82%;font-size:calc(23px*var(--ak));letter-spacing:3px;margin-top:calc(14px*var(--ak));\n text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n#ambient .aline{margin-top:26px;font:26px var(--mono);letter-spacing:2px;color:#7f9db1;white-space:nowrap;\n max-width:92%;overflow:hidden;text-overflow:ellipsis}\n#ambient .aline b{font-weight:500;color:#cfe0ea}\n#ambient .atag{font:22px var(--mono);letter-spacing:4px;color:#8ca9bc;margin-top:30px;display:flex;align-items:center;gap:14px;text-transform:uppercase}\n#ambient .atag i{width:8px;height:8px;background:var(--a1);box-shadow:0 0 12px var(--a1);animation:breath 3s ease-in-out infinite}\n/* Na vysku se kruhy poskladaji po dvou - vedle sebe by nezbylo na cisla. */\n.panel-root.is-portrait #ambient .arow{--ak:.72;gap:36px 50px;max-width:96%}\n.panel-root.is-portrait #ambient .aclock{font-size:150px}\n\n/* ---------- zvetsena sekce ----------\n   Okno se rozbali z mista, kde sekce stoji. Zadny efekt navic: jen\n   prechod polohy a velikosti, aby bylo videt, co se zvetsilo. */\n#zoom{position:absolute;inset:0;z-index:85;display:none;align-items:center;justify-content:center;\n padding:2.5vmin;background:#01050898;backdrop-filter:blur(3px)}\n.panel-root.zooming #zoom{display:flex}\n.panel-root.zooming #stage{filter:blur(2px) saturate(.7)}\n#zoom .zwin{position:relative;width:min(1600px,96vw);height:min(900px,92vh);\n transition:transform .42s cubic-bezier(.16,.84,.34,1),opacity .3s;transform-origin:center}\n#zoom #zoomBody{position:absolute;inset:0;--k:1;display:flex}\n#zoom #zoomBody .mid{flex:1;min-width:0;--k:1}\n#zoom .zclose{position:absolute;top:-1px;right:-1px;z-index:2;width:66px;height:66px;\n font-size:30px;color:#cfe4f2;background:#0b1b24e0;border:1px solid #2d5768;border-radius:0 4px 0 12px}\n#zoom .zclose:active{background:#16303d}\n/* Zvetsena sekce uz se nezvetsuje dal. */\n#zoom .card{border-radius:6px 28px 6px 6px}\n\n/* ---------- okno s ovladanim entity ---------- */\n#detail{position:absolute;inset:0;z-index:105;display:none;align-items:center;justify-content:center;\n padding:3vmin;background:#010508b0;backdrop-filter:blur(3px)}\n.panel-root.detailing #detail{display:flex}\n.dwin{width:min(860px,94vw);max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;\n background:linear-gradient(150deg,#0c1720,#050a0e);border:1px solid #2d5768;border-radius:6px 24px 6px 6px;\n box-shadow:0 30px 80px #000a;animation:dwinIn .26s cubic-bezier(.2,.8,.3,1) both}\n@keyframes dwinIn{from{opacity:0;transform:translateY(26px) scale(.96)}to{opacity:1;transform:none}}\n.dhead{display:flex;align-items:center;gap:18px;padding:20px 18px 16px 24px;border-bottom:1px solid #1b2a35}\n.dnames{flex:1;min-width:0}\n.dnames b{display:block;font-size:30px;font-weight:700;letter-spacing:2px;color:#eaf4ff;\n white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase}\n.dnames i{display:block;font:14px var(--mono);color:#6f8798;font-style:normal;\n white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.dval{flex:none;font:600 40px var(--display);color:var(--a1);font-variant-numeric:tabular-nums;white-space:nowrap}\n.dbody{padding:20px 24px 26px}\n.dbtn{min-height:60px;padding:0 22px;font:17px/1 var(--display);letter-spacing:2px;text-transform:uppercase;\n color:#cfe4f2;background:#0e1d27;border:1px solid #2d5768;border-radius:4px}\n.dbtn:active{background:#16303d}\n.dbtn.big{flex:1;min-height:76px;font-size:21px}\n.dbtn.on{color:#04121a;background:var(--a1);border-color:var(--a1)}\n.dbtn.off{color:#cfd9e0;background:#1b2730;border-color:#3b4b57}\n.dbtn.x{flex:none;width:56px;min-height:56px;padding:0;font-size:22px;border-radius:50%}\n.dbtn.rnd{width:84px;min-height:84px;font-size:36px;border-radius:50%}\n.drow{display:flex;gap:12px;margin-bottom:18px}\n.drow.wrap{flex-wrap:wrap}\n.dlbl{font:13px var(--mono);letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:6px 0 10px}\n.dslide{margin-bottom:20px}\n.dsl{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;\n font:15px var(--mono);letter-spacing:1px;color:var(--muted)}\n.dsl b{font:600 26px var(--display);color:#eaf4ff}\n/* Posuvnik musi byt tlusty - na tabletu se trefuje prstem, ne mysi. */\n.dslide input[type=range]{width:100%;height:52px;appearance:none;-webkit-appearance:none;background:transparent}\n.dslide input[type=range]::-webkit-slider-runnable-track{height:22px;border-radius:11px;\n background:linear-gradient(90deg,#123244,#36d8ff55);border:1px solid #2d5768}\n.dslide input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;\n width:46px;height:46px;margin-top:-13px;border-radius:50%;background:var(--a1);border:3px solid #04121a;\n box-shadow:0 0 16px #36d8ff70}\n.dslide.warm input[type=range]::-webkit-slider-runnable-track{background:linear-gradient(90deg,#ff9b3a,#cfe6ff)}\n.dslide.warm input[type=range]::-webkit-slider-thumb{background:#ffd7a8}\n.dsw{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}\n.dsw i{display:block;height:58px;border-radius:6px;border:1px solid #ffffff22}\n.dsw i:active{outline:3px solid #fff8}\n.dtemp{display:flex;align-items:center;justify-content:center;gap:26px;margin-bottom:20px}\n.dtemp b{font:600 62px var(--display);color:#eaf4ff;font-variant-numeric:tabular-nums;min-width:200px;text-align:center}\n.dgraph{position:relative;height:190px;margin:18px 0 6px;--k:1;--accent:var(--a1);--rgb:54,216,255}\n.dnote{font:14px var(--mono);color:#6f8798;letter-spacing:1px;margin-top:14px}\n/* Dlazdice pod prstem pri dlouhem stisku - at je poznat, ze se neco deje. */\n.lt.held,.card.held{outline:2px solid rgba(var(--rgb),.5);outline-offset:-2px}\n\n/* ---------- prekryvy stavu ---------- */\n.overlay{position:absolute;inset:0;z-index:70;display:none;flex-direction:column;align-items:center;justify-content:center;padding:5vmin;text-align:center}\n.panel-root.mode-down .ov-down,.panel-root.mode-setup .ov-setup{display:flex}\n.panel-root.mode-down #stage,.panel-root.mode-setup #stage{visibility:hidden;opacity:0}\n.panel-root.mode-down .bg,.panel-root.mode-down .scan{display:none}\n.state-kicker{font:clamp(10px,2.4vmin,25px) var(--mono);letter-spacing:.3em;text-transform:uppercase}\n.ov-down{background:radial-gradient(ellipse at 50% 45%,#35200d,#020405 70%)}\n.ov-down .state-kicker{color:var(--a2);margin-bottom:3vmin}\n.signal-mark{display:flex;align-items:center;justify-content:center;gap:1.3vmin;width:19vmin;height:19vmin;border:1px solid #986032;background:#29190b;clip-path:polygon(20% 0,100% 0,100% 80%,80% 100%,0 100%,0 20%);margin-bottom:3vmin}\n.signal-mark i{width:1.6vmin;background:var(--a2);animation:breath 1.8s ease-in-out infinite}\n.signal-mark i:nth-child(1){height:4vmin}.signal-mark i:nth-child(2){height:8vmin;animation-delay:.2s}.signal-mark i:nth-child(3){height:12vmin;animation-delay:.4s}\n.ov-down h2{font-size:8vmin;letter-spacing:.08em;text-transform:uppercase;color:#ffc28b}\n.ov-down p{font-size:3vmin;max-width:85vw;color:#c5ad97;margin-top:2vmin}\n.ov-down .state-note{font:2.3vmin var(--mono);color:#ac815a;letter-spacing:.08em;border-top:1px solid #604124;padding-top:3vmin;margin-top:4vmin}\n.ov-setup{background:radial-gradient(ellipse at 50% 40%,#0a2b3b,#020508 68%)}\n.ov-setup .state-kicker{color:var(--a1);margin-bottom:3vmin}\n.ov-setup h2{font-size:6vmin;letter-spacing:.08em;text-transform:uppercase;color:#cfe9f6}\n.ov-setup p{font-size:2.8vmin;max-width:80vw;color:#9fc0d2;margin-top:2vmin;line-height:1.5}\n.bigbtn{margin-top:5vmin;padding:2.2vmin 5vmin;font:3vmin var(--display);letter-spacing:.2em;text-transform:uppercase;\n color:#04121a;background:var(--a1);border:none;border-radius:3px}\n.bigbtn.ghost{background:transparent;color:var(--a1);border:1px solid var(--a1)}\n\n/* ---------- start ---------- */\n#boot{position:absolute;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.4vmin;background:radial-gradient(ellipse at 50% 35%,#0a2b3b,#020508 65%);overflow:hidden}\n#boot::before,#boot::after{content:'';position:absolute;left:50%;top:43%;width:69vmin;height:69vmin;border:1px solid #36d8ff25;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}\n#boot::after{width:83vmin;height:83vmin;border-style:dashed;border-color:#36d8ff15}\n#boot.done{animation:bootOut .7s ease forwards}\n#boot .boot-emblem{position:relative;width:15vmin;height:15vmin;border:2px solid var(--a1);border-left-color:transparent;border-right-color:var(--a2);border-radius:50%;margin-bottom:1vmin;box-shadow:0 0 7vmin #36d8ff20;animation:reactorIn 1.8s ease both}\n#boot .boot-emblem::before{content:'';position:absolute;inset:3vmin;background:linear-gradient(135deg,var(--a1) 0 32%,transparent 32% 44%,var(--a1) 44% 62%,transparent 62% 74%,var(--a2) 74%);clip-path:polygon(20% 0,100% 0,80% 100%,0 100%)}\n#boot .boot-kicker{font:2.2vmin var(--mono);letter-spacing:.3em;text-transform:uppercase;color:#75b3cf;z-index:1}\n#boot .bl{width:54vw;max-width:900px;height:1.3vmin;background:#142833;margin-top:2vmin;z-index:1;overflow:hidden}\n#boot .bl i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--a1) 70%,#fff);transition:width .35s;mask-image:repeating-linear-gradient(90deg,#000 0 12px,transparent 12px 17px)}\n#boot .bt{font:2.6vmin var(--mono);height:4vmin;color:#b3cfdd;letter-spacing:.1em;z-index:1}\n#boot .boot-steps{display:flex;gap:2vmin;z-index:1}\n#boot .boot-steps i{width:5vmin;height:.4vmin;background:#284052}\n#boot .boot-steps i.active{background:var(--a1)}\n\n/* ---------- drobnosti ---------- */\n#pulse{position:absolute;inset:0;z-index:60;pointer-events:none;opacity:0;background:linear-gradient(100deg,transparent 20%,#36d8ff30 48%,#ff8b3e20 52%,transparent 80%)}\n#pulse.go{animation:shock 1.1s ease-out forwards}\n#toast{position:absolute;left:50%;bottom:6vmin;transform:translateX(-50%) translateY(20px);z-index:95;opacity:0;\n padding:14px 28px;background:#08131de6;border:1px solid #34576c;color:#cfe4f2;font:2.2vmin var(--mono);letter-spacing:1px;\n transition:opacity .3s,transform .3s;pointer-events:none;max-width:80vw;text-align:center}\n#toast.show{opacity:1;transform:translateX(-50%)}\n\n/* Cerna, dokud Android dokoncuje sve zhasinani - pod ni nesmi nic bezet. */\n.panel-root.oled-off{background:#000}\n.panel-root.oled-off > *{visibility:hidden!important;pointer-events:none!important}\n.panel-root.oled-off *{animation:none!important}\n\n@keyframes breath{0%,100%{opacity:.35}50%{opacity:1}}\n@keyframes spin{to{transform:rotate(360deg)}}\n@keyframes shock{0%{opacity:0;transform:translateX(-100%)}30%{opacity:1}100%{opacity:0;transform:translateX(100%)}}\n@keyframes reactorIn{from{opacity:0;transform:rotate(-160deg) scale(.6)}to{opacity:1;transform:rotate(0) scale(1)}}\n@keyframes bootOut{to{opacity:0;visibility:hidden;filter:blur(5px)}}\n@keyframes rise{from{opacity:0;transform:translateY(24px);filter:blur(3px)}to{opacity:1;transform:none;filter:none}}\n.anim{animation:rise .7s cubic-bezier(.2,.75,.3,1) backwards}\n@keyframes ambIn{from{opacity:0}to{opacity:.5}}\n@keyframes ambientTravel{0%{transform:translate(-140px,-20px)}33%{transform:translate(100px,12px)}66%{transform:translate(-60px,20px)}100%{transform:translate(140px,-12px)}}\n@media(prefers-reduced-motion:reduce){\n *,*::before,*::after{animation:none!important;transition:none!important}\n #organism,#boot{display:none}\n}\n\n:host{display:block;position:relative;contain:content}\n.panel-root{position:relative;width:100%;overflow:hidden;border-radius:12px;background:#020507;color:#f2f8ff}\n#stage{position:absolute;top:0;left:0;transform-origin:top left;height:auto;min-height:0}\n#boot,#organism,#pulse,#toast,#editor,#picker,.overlay,#vhProbe{display:none!important}\n.bg,.scan{position:absolute;inset:0}\n";
+var CARD_CSS = "/* ------------------------------------------------------------------\n   Panel pro Home Assistant - jeden vizualni system pro vsechny stavy.\n\n   Navrhovy prostor je pevny (2400 x 1080 na sirku, 1400 x 2000 na vysku)\n   a cela plocha se jen zvetsi na displej tabletu - proto jsou vsechny\n   rozmery v pixelech a na kazdem zarizeni vypadaji stejne.\n\n   Dve pravidla, ktera drzi cely vzhled pohromade:\n     1) Stav nese barvu I SLOVO - nikdy jen barvu.\n     2) Cisla jsou velka natolik, aby se dala precist pres pokoj.\n   ------------------------------------------------------------------ */\n:host{\n --a1:#36d8ff;--a2:#ff8b3e;--a3:#8af5bc;--a4:#c48aff;--a5:#ff5369;\n --good:#8af5bc;--warning:#ffd064;--serious:#ff9863;--critical:#ff5369;\n --void:#000;--pane:#080e14;--rail:#263541;--rail2:#455c6e;\n --ink:#f2f8ff;--ink2:#c0cfda;--muted:#90a5b6;\n --display:'Bahnschrift Condensed','Bahnschrift','Roboto Condensed','Arial Narrow',sans-serif;\n --mono:'Cascadia Mono','Consolas',ui-monospace,monospace;\n}\n*{box-sizing:border-box;margin:0;padding:0}\n\nbody{background:var(--void);color:var(--ink);font-family:var(--display);-webkit-font-smoothing:antialiased;\n -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}\n.bg,.scan{position:absolute;inset:0;pointer-events:none}\n.bg{z-index:0;background:radial-gradient(ellipse at 15% 35%,#06364b80,transparent 48%),radial-gradient(ellipse at 90% 40%,#48200c60,transparent 48%),#020507}\n.scan{z-index:0;opacity:.18;background-image:linear-gradient(#47728c35 1px,transparent 1px),linear-gradient(90deg,#47728c35 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(transparent,#000,transparent)}\n\n/* ---------- plocha ---------- */\n#stage{position:absolute;top:0;left:0;width:2400px;height:1080px;transform-origin:top left;z-index:2;\n display:grid;grid-template-rows:84px 1fr auto;gap:16px;padding:24px 32px}\n.panel-root.mode-ambient .pages,.panel-root.mode-ambient .pdots{display:none}\n.panel-root.is-portrait #stage{width:1400px;height:2000px;grid-template-rows:84px 1fr auto}\n\nheader{display:flex;align-items:center;gap:32px;position:relative;border-bottom:1px solid #324652;padding-bottom:10px}\nheader::after{content:'';position:absolute;bottom:-1px;left:0;width:220px;height:3px;background:var(--a1);box-shadow:0 0 18px #36d8ff60}\n.plate{display:flex;align-items:center;gap:18px;min-width:0}\n.plate .bar{width:48px;height:48px;flex:none;background:linear-gradient(135deg,var(--a1) 0 30%,transparent 30% 42%,var(--a1) 42% 61%,transparent 61% 73%,var(--a2) 73%);clip-path:polygon(18% 0,100% 0,82% 100%,0 100%)}\n.wordmark{font-size:43px;line-height:1;font-weight:800;letter-spacing:6px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.subline{font:16px var(--mono);letter-spacing:3px;color:var(--muted);margin-top:6px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.plate.empty{display:none}\n.badge{display:flex;align-items:center;gap:10px;border:1px solid #3b6358;background:#0c211d;padding:9px 14px;flex:none}\n.badge .led{width:8px;height:8px;background:var(--good);box-shadow:0 0 12px #8af5bc80}\n.badge span{font:18px var(--mono);color:var(--good);letter-spacing:2px;white-space:nowrap}\n.badge.warn{border-color:#6b5426;background:#211a0c}\n.badge.warn .led{background:var(--warning);box-shadow:0 0 12px #ffd06480;animation:breath 1.6s ease-in-out infinite}\n.badge.warn span{color:var(--warning)}\n.badge.bad{border-color:#6b2f34;background:#210d0f}\n.badge.bad .led{background:var(--critical);box-shadow:0 0 12px #ff536980}\n.badge.bad span{color:var(--critical)}\nheader .grow{flex:1}\n.wx{flex:none;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;\n padding-right:26px;margin-right:4px;border-right:1px solid var(--rail)}\n.wx b{font:500 30px var(--display);color:#dcebf6;font-variant-numeric:tabular-nums;white-space:nowrap}\n.wx span{font:15px var(--mono);letter-spacing:2px;color:var(--muted);text-transform:uppercase;white-space:nowrap}\n.clock .t{font:46px/1 var(--mono);letter-spacing:-2px;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}\n.clock .d{font-size:18px;color:var(--muted);letter-spacing:1px;margin-top:5px;text-align:right;white-space:nowrap}\n/* Ozubene kolo: jedina cesta do editoru. Zamerne male a v rohu - panel\n   ma ukazovat data, ne ovladaci prvky. */\n.cog{flex:none;width:52px;height:52px;border:1px solid var(--rail);background:#0a141c;color:#6f8798;\n display:flex;align-items:center;justify-content:center;border-radius:4px}\n.cog svg{width:26px;height:26px;fill:currentColor}\n.cog:active{background:#12212c;color:var(--a1)}\n\n/* ---------- stranky ----------\n   Vsechny stranky stoji vedle sebe v jednom pasu; prepnuti je posun.\n   Nic se pri prejeti nedopocitava, takze i na levnem tabletu jede\n   prechod plynule. */\n.pages{position:relative;display:flex;min-height:0;overflow:hidden;\n transition:transform .38s cubic-bezier(.22,.7,.3,1);will-change:transform}\n.page{flex:0 0 100%;min-width:100%;display:grid;grid-template-rows:1fr auto;gap:16px;min-height:0;\n padding-right:0;opacity:.4;transition:opacity .3s}\n.page.on{opacity:1}\n/* Tecky stranek: ukazuji, kde jsi, a daji se i zmacknout. */\n.pdots{display:flex;align-items:center;justify-content:center;gap:16px;height:26px;flex:none}\n.pdots i{width:12px;height:12px;border-radius:50%;background:#2b3d49;transition:background .25s,transform .25s}\n.pdots i.on{background:var(--a1);transform:scale(1.35);box-shadow:0 0 12px #36d8ff70}\n\n/* ---------- sekce s budikem ----------\n   Cim vic sekci, tim mensi okna - o tom rozhoduje uzivatel. Vsechny\n   rozmery uvnitr sekce se odvozuji od jedineho meritka --k, takze\n   zmensena sekce zustane sama sebou a nerozsype se. */\n.mid{display:grid;gap:16px;min-height:0;--k:1}\n.mid.n1{grid-template-columns:1fr}\n.mid.n2{grid-template-columns:1fr 1fr}\n.mid.n3{grid-template-columns:repeat(3,1fr);--k:.74}\n.mid.n4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;--k:.78}\n/* Pet sekci: tri nahore, dve dole pres pul sirky. */\n.mid.n5{grid-template-columns:repeat(6,1fr);grid-template-rows:1fr 1fr;--k:.62}\n.mid.n5 > *{grid-column:span 2}\n.mid.n5 > *:nth-child(n+4){grid-column:span 3}\n/* Rucne nastavena mrizka: zadne zvlastni pripady, plati presne to,\n   co si uzivatel rekl. */\n.mid.fixed > *,.mid.fixed > *:nth-child(n+4){grid-column:auto}\n.mid.n6{grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;--k:.62}\n.panel-root.is-portrait .mid.n2{grid-template-columns:1fr;grid-template-rows:1fr 1fr}\n.panel-root.is-portrait .mid.n3{grid-template-columns:1fr 1fr;--k:.62}\n.panel-root.is-portrait .mid.n4{grid-template-columns:1fr 1fr;--k:.62}\n.panel-root.is-portrait .mid.n5,.panel-root.is-portrait .mid.n6{grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,1fr);--k:.55}\n.panel-root.is-portrait .mid.n5 > *,.panel-root.is-portrait .mid.n5 > *:nth-child(n+4){grid-column:auto}\n.pane{position:relative;min-height:0;border:1px solid var(--rail);background:var(--pane);border-radius:4px 28px 4px 4px;overflow:hidden}\n.card{--accent:var(--a1);--rgb:54,216,255;display:flex;flex-direction:column;\n padding:calc(20px*var(--k)) calc(28px*var(--k)) calc(14px*var(--k));\n border-color:rgba(var(--rgb),.42);background:radial-gradient(ellipse at 22% 48%,rgba(var(--rgb),.13),transparent 62%),linear-gradient(120deg,#0b141d,#05090d 80%)}\n.card.t-amber{--accent:var(--a2);--rgb:255,139,62}\n.card.t-green{--accent:var(--a3);--rgb:138,245,188}\n.card.t-violet{--accent:var(--a4);--rgb:196,138,255}\n.card.t-red{--accent:var(--a5);--rgb:255,83,105}\n.card::before{content:'';position:absolute;top:0;left:0;width:48%;height:4px;background:var(--accent);box-shadow:0 0 24px rgba(var(--rgb),.6)}\n.card::after{content:'';position:absolute;right:18px;bottom:15px;width:68px;height:9px;background:repeating-linear-gradient(120deg,var(--accent) 0 4px,transparent 4px 10px);opacity:.45}\n.chead{display:flex;align-items:center;gap:calc(16px*var(--k));height:calc(65px*var(--k));flex:none;\n border-bottom:1px solid rgba(var(--rgb),.19);padding-bottom:calc(12px*var(--k))}\n.chead .id{font:calc(19px*var(--k)) var(--mono);color:var(--accent);border:1px solid rgba(var(--rgb),.4);\n padding:calc(8px*var(--k)) calc(10px*var(--k));background:rgba(var(--rgb),.06)}\n.chead .nm{font-size:calc(44px*var(--k));font-weight:800;letter-spacing:calc(5px*var(--k));color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.chead .part{margin-left:auto;max-width:52%;font-size:calc(22px*var(--k));letter-spacing:1px;text-transform:uppercase;color:#b6c8d6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.cbody{display:flex;align-items:stretch;gap:calc(24px*var(--k));flex:1;min-height:0}\n.c.panel-root.solo{justify-content:center}\n/* Budik si vezme celou vysku sekce a zustane kulaty. Starsi WebView bez\n   aspect-ratio dostane pevny rozmer - panel tam vypada jako driv. */\n.gw{position:relative;flex:none;width:calc(520px*var(--k));height:calc(520px*var(--k));color:var(--accent);\n max-height:100%;align-self:center}\n@supports (aspect-ratio:1){\n  .gw{width:auto;height:100%;aspect-ratio:1;max-height:calc(640px*var(--k));min-width:calc(300px*var(--k))}\n}\n.gw::before{content:'';position:absolute;inset:48px;border-radius:50%;background:radial-gradient(circle,rgba(var(--rgb),.08),transparent 69%);box-shadow:inset 0 0 36px rgba(var(--rgb),.06)}\n.gw svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}\n.gw .dial-frame{fill:none;stroke:var(--accent);stroke-width:.6;opacity:.35}\n.gw .dial-ticks{fill:none;stroke:var(--accent);stroke-width:3;stroke-dasharray:.6 9.5;opacity:.5}\n.gw .dial-core{fill:none;stroke:var(--accent);stroke-width:.6;opacity:.2}\n.gw .dial-caption{font:10px var(--mono);letter-spacing:2px;fill:var(--accent);opacity:.75}\n.gv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:9px}\n.gv .cap{font:calc(19px*var(--k)) var(--mono);letter-spacing:calc(5px*var(--k));color:#99b2c4;margin-bottom:calc(20px*var(--k));text-transform:uppercase}\n.gv .n{font:700 calc(216px*var(--k))/.85 var(--display);letter-spacing:calc(-10px*var(--k));color:#d6e1e8;font-variant-numeric:tabular-nums}\n.gv .n.txt{font-size:calc(92px*var(--k));letter-spacing:-2px;text-align:center;padding:0 24px;line-height:1.05}\n.gv .u{font:calc(28px*var(--k)) var(--mono);color:var(--accent);margin-top:calc(14px*var(--k));letter-spacing:1px;min-height:calc(28px*var(--k))}\n.gv .st{font-size:calc(23px*var(--k));font-weight:700;letter-spacing:2px;margin-top:calc(19px*var(--k));padding:calc(5px*var(--k)) calc(12px*var(--k));background:#020609b0;border:1px solid currentColor}\n.cright{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;\n gap:calc(30px*var(--k));padding:0 0 calc(12px*var(--k))}\n.cright:empty{display:none}\n\n/* ---------- ukazatele a dlazdice ---------- */\n.meter .lbl{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:calc(12px*var(--k));white-space:nowrap}\n.meter .k{font-size:calc(26px*var(--k));letter-spacing:1px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}\n.meter .k b{margin-left:calc(14px*var(--k));font:700 calc(20px*var(--k)) var(--display);letter-spacing:2px;text-transform:uppercase}\n.meter .v{font:500 calc(50px*var(--k)) var(--display);letter-spacing:-1px;font-variant-numeric:tabular-nums}\n.track{height:calc(24px*var(--k));position:relative;background:#010406;border:1px solid #344753;padding:3px;overflow:hidden}\n.fill{height:100%;width:0;transition:width .5s ease;mask-image:repeating-linear-gradient(90deg,#000 0 10px,transparent 10px 15px);-webkit-mask-image:repeating-linear-gradient(90deg,#000 0 10px,transparent 10px 15px)}\n.mnote{display:flex;justify-content:space-between;align-items:baseline;gap:14px;margin-top:11px;font:20px var(--mono);color:#829baa;white-space:nowrap}\n.mnote span{overflow:hidden;text-overflow:ellipsis}\n/* Dlazdice se skladaji podle toho, kolik je mista - v uzke sekci na\n   tabletu na vysku radeji jedna pod druhou nez orezana cisla. */\n.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(calc(190px*var(--k)),1fr));gap:calc(18px*var(--k));margin-top:4px}\n.tiles .tile{border-top:1px solid rgba(var(--rgb),.3);background:linear-gradient(rgba(var(--rgb),.06),transparent);\n padding:calc(18px*var(--k)) 8px calc(10px*var(--k)) calc(12px*var(--k));min-width:0}\n.tile .k{font-size:calc(24px*var(--k));letter-spacing:1px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.tile .v{font:600 calc(57px*var(--k))/1.1 var(--display);letter-spacing:-1px;margin-top:calc(8px*var(--k));white-space:nowrap;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}\n.tile .v.txt{font-size:calc(38px*var(--k))}\n.tile .v small{font-size:calc(25px*var(--k));font-weight:400;color:var(--muted);margin-left:8px;letter-spacing:0}\n\n/* ---------- sloupec, krivka, holé číslo ----------\n   Tri dalsi zpusoby, jak ukazat tutez hodnotu. Sloupec se cte stejne\n   jako budik (kolik je z rozsahu), krivka ukaze, kam to smeruje, a holé\n   číslo je pro veliciny, u kterych zadny rozsah nedava smysl. */\n.barw{position:relative;flex:none;display:flex;align-items:stretch;gap:calc(18px*var(--k));height:100%;padding:calc(8px*var(--k)) 0}\n.barw .bcol{position:relative;width:calc(150px*var(--k));flex:none;display:flex;flex-direction:column-reverse;gap:calc(4px*var(--k));\n background:#010406;border:1px solid #2b3d49;padding:calc(5px*var(--k))}\n.barw .bseg{flex:1;background:#141d28;transition:background .4s}\n.barw .bside{display:flex;flex-direction:column;justify-content:center;min-width:0}\n.barw .cap{font:calc(19px*var(--k)) var(--mono);letter-spacing:calc(4px*var(--k));color:#99b2c4;text-transform:uppercase;margin-bottom:calc(10px*var(--k))}\n.barw .n{font:700 calc(150px*var(--k))/.85 var(--display);letter-spacing:calc(-6px*var(--k));color:#d6e1e8;font-variant-numeric:tabular-nums}\n.barw .n.txt{font-size:calc(70px*var(--k));letter-spacing:-2px}\n.barw .u{font:calc(26px*var(--k)) var(--mono);color:var(--accent);margin-top:calc(10px*var(--k))}\n.barw .st{align-self:flex-start;font-size:calc(22px*var(--k));font-weight:700;letter-spacing:2px;margin-top:calc(16px*var(--k));\n padding:calc(5px*var(--k)) calc(12px*var(--k));background:#020609b0;border:1px solid currentColor}\n.barw .ends{position:absolute;right:calc(-2px*var(--k));top:0;bottom:0;display:none}\n\n.numw{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center}\n.numw .cap{font:calc(19px*var(--k)) var(--mono);letter-spacing:calc(5px*var(--k));color:#99b2c4;text-transform:uppercase;margin-bottom:calc(14px*var(--k))}\n.numw .n{font:700 calc(230px*var(--k))/.85 var(--display);letter-spacing:calc(-10px*var(--k));color:#d6e1e8;font-variant-numeric:tabular-nums}\n.numw .n.txt{font-size:calc(96px*var(--k));letter-spacing:-2px;text-align:center}\n.numw .u{font:calc(30px*var(--k)) var(--mono);color:var(--accent);margin-top:calc(12px*var(--k))}\n.numw .st{font-size:calc(23px*var(--k));font-weight:700;letter-spacing:2px;margin-top:calc(18px*var(--k));\n padding:calc(5px*var(--k)) calc(12px*var(--k));background:#020609b0;border:1px solid currentColor}\n\n.graphw{flex:1;min-width:0;display:flex;flex-direction:column;height:100%;padding:calc(6px*var(--k)) 0 0}\n.graphw .ghead{display:flex;align-items:baseline;gap:calc(16px*var(--k));flex:none}\n.graphw .cap{font:calc(18px*var(--k)) var(--mono);letter-spacing:calc(4px*var(--k));color:#99b2c4;text-transform:uppercase}\n.graphw .n{font:700 calc(110px*var(--k))/.9 var(--display);letter-spacing:calc(-4px*var(--k));color:#d6e1e8;font-variant-numeric:tabular-nums}\n.graphw .n.txt{font-size:calc(56px*var(--k));letter-spacing:-1px}\n.graphw .u{font:calc(24px*var(--k)) var(--mono);color:var(--accent)}\n.graphw .st{margin-left:auto;font-size:calc(21px*var(--k));font-weight:700;letter-spacing:2px;\n padding:calc(4px*var(--k)) calc(10px*var(--k));background:#020609b0;border:1px solid currentColor}\n.graphw .gbox{flex:1;min-height:calc(120px*var(--k));position:relative;margin-top:calc(10px*var(--k))}\n.graphw .span{display:flex;justify-content:space-between;flex:none;margin-top:calc(6px*var(--k));\n font:calc(17px*var(--k)) var(--mono);color:#6f8798;letter-spacing:1px}\n\n.gempty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;\n font:calc(20px*var(--k)) var(--mono);color:#4e6373;letter-spacing:2px}\n\n/* Krivka v dlazdici a v ukazateli - jen tvar, bez popisku. */\n.spark{height:calc(46px*var(--k));position:relative;margin-top:calc(6px*var(--k))}\n.lt .spark{height:calc(52px*var(--k))}\n\n/* ---------- kamera ----------\n   Snimek se obnovuje po par vterinach; proud videa by na levnem tabletu\n   jen zral proud a pamet. */\n.camw{flex:1;min-width:0;position:relative;display:flex;align-items:center;justify-content:center;\n background:#04080b;border:1px solid rgba(var(--rgb),.25);overflow:hidden}\n.camw .cam{width:100%;height:100%;object-fit:cover;display:block}\n.camw .camnote{position:absolute;font:calc(22px*var(--k)) var(--mono);letter-spacing:2px;color:#5f7686}\n.camw::after{content:'';position:absolute;left:0;right:0;bottom:0;height:calc(70px*var(--k));\n background:linear-gradient(transparent,#04080bcc);pointer-events:none}\n\n/* ---------- spodni panely ---------- */\n.bot{display:grid;gap:16px;min-height:0;--k:1}\n.bot.n1{grid-template-columns:1fr}\n.bot.n2{grid-template-columns:1fr 1fr}\n.bot.n3{grid-template-columns:repeat(3,1fr);--k:.85}\n.bot.n4{grid-template-columns:repeat(4,1fr);--k:.72}\n.panel-root.is-portrait .bot.n2{grid-template-columns:1fr 1fr;--k:.8}\n.panel-root.is-portrait .bot.n3,.panel-root.is-portrait .bot.n4{grid-template-columns:1fr 1fr;--k:.7}\n.panel{display:flex;flex-direction:column;padding:calc(18px*var(--k)) calc(26px*var(--k)) calc(16px*var(--k));\n background:linear-gradient(120deg,#0b151b,#050a0e);min-height:calc(248px*var(--k))}\n.ptitle{font:500 calc(21px*var(--k)) var(--display);color:#adc0cf;letter-spacing:3px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.ptitle::before{content:'';display:inline-block;width:5px;height:16px;background:var(--accent,var(--a3));margin-right:12px;vertical-align:-1px}\n.chead2{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:8px}\n.panel{--accent:var(--a3);--rgb:138,245,188}\n.panel.t-cyan{--accent:var(--a1);--rgb:54,216,255}\n.panel.t-amber{--accent:var(--a2);--rgb:255,139,62}\n.panel.t-violet{--accent:var(--a4);--rgb:196,138,255}\n.panel.t-red{--accent:var(--a5);--rgb:255,83,105}\n.psrc{font:18px var(--mono);letter-spacing:2px;color:var(--muted);white-space:nowrap}\n.prow{flex:1;min-height:0;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:22px;align-content:start}\n.prow.c3{grid-auto-flow:row;grid-template-columns:repeat(3,1fr)}\n.prow.wrap{grid-auto-flow:row;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}\n.lt{position:relative;border-top:1px solid rgba(var(--rgb),.3);background:linear-gradient(rgba(var(--rgb),.06),transparent);padding:12px 12px 6px;min-width:0}\n.lt.act{border-top-width:3px}\n.lt.act::after{content:'';position:absolute;right:10px;top:10px;width:9px;height:9px;background:var(--accent);opacity:.5}\n.lt.on{background:linear-gradient(rgba(var(--rgb),.22),rgba(var(--rgb),.04))}\n.lt:active{background:rgba(var(--rgb),.3)}\n.lt .lk{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:calc(24px*var(--k));letter-spacing:1px;color:var(--muted);white-space:nowrap}\n.lt .lk span{overflow:hidden;text-overflow:ellipsis}\n.lt .lst{flex:none;font-size:calc(19px*var(--k));font-weight:700;letter-spacing:2px;text-transform:uppercase}\n.lt .lv{font:600 calc(62px*var(--k))/1.05 var(--display);letter-spacing:-1px;margin:2px 0 calc(6px*var(--k));font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.lt .lv.txt{font-size:calc(40px*var(--k));letter-spacing:0}\n.lt .lv small{font-size:calc(24px*var(--k));font-weight:400;color:var(--muted);margin-left:8px;letter-spacing:1px}\n.lt .track{height:calc(18px*var(--k))}\n.lt .lr{font:calc(20px*var(--k)) var(--mono);color:#829baa;margin-top:calc(8px*var(--k));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.pempty{flex:1;display:flex;align-items:center;justify-content:center;font:22px var(--mono);letter-spacing:2px;color:#5f7686;text-align:center;padding:12px}\n\n/* ---------- krivka: stupnice, bod posledni hodnoty ---------- */\n.chartbox{position:absolute;inset:0}\n.chartbox.scaled{left:calc(58px*var(--k));bottom:calc(26px*var(--k))}\n.chart{position:absolute;inset:0;width:100%;height:100%;overflow:visible}\n.chart .grid{stroke:#24323d;stroke-width:1;vector-effect:non-scaling-stroke}\n.chart .area{fill:rgba(var(--rgb),.16)}\n.chart .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}\n/* Bod je HTML, ne SVG - v roztazene soustave by z kolecka byl oval. */\n.cdot{position:absolute;width:calc(14px*var(--k));height:calc(14px*var(--k));margin:calc(-7px*var(--k)) 0 0 calc(-7px*var(--k));\n border-radius:50%;background:var(--accent);box-shadow:0 0 calc(14px*var(--k)) rgba(var(--rgb),.9)}\n.cy{position:absolute;right:100%;top:0;bottom:0;width:calc(54px*var(--k));pointer-events:none}\n.cy span{position:absolute;right:calc(8px*var(--k));transform:translateY(-50%);\n font:calc(17px*var(--k)) var(--mono);color:#6f8798;letter-spacing:.5px;white-space:nowrap}\n.cx{position:absolute;left:0;right:0;top:100%;display:flex;justify-content:space-between;\n font:calc(17px*var(--k)) var(--mono);color:#6f8798;letter-spacing:1px;padding-top:calc(5px*var(--k))}\n.spark .chartbox{inset:0}\n.spark .cdot{width:calc(9px*var(--k));height:calc(9px*var(--k));margin:calc(-4.5px*var(--k)) 0 0 calc(-4.5px*var(--k))}\n.spark .chart .grid{display:none}\n\n/* ---------- pruh upozorneni (misto zahlavi) ---------- */\n#alert{position:absolute;top:24px;left:32px;right:32px;height:84px;z-index:6;display:flex;align-items:center;gap:24px;\n padding:15px 26px;background:linear-gradient(100deg,#103448,#08131d);border:1px solid #36d8ff80;border-left:5px solid var(--a1);\n transform:translateY(-150%);opacity:0;transition:transform .5s ease,opacity .4s;pointer-events:none}\n.panel-root.alert #alert{transform:none;opacity:1}\n.panel-root.alert header{visibility:hidden}\n#alert .al{display:flex;align-items:center;gap:12px;white-space:nowrap;font-size:26px;letter-spacing:2px;font-weight:700;color:var(--a1);text-transform:uppercase}\n#alert .al i{width:10px;height:10px;background:var(--a1);animation:breath 1.6s ease-in-out infinite}\n#alert .at{flex:1;min-width:40px;height:18px;background:#030b11;position:relative;overflow:hidden}\n#alert .af{width:0;height:100%;background:var(--a1);transition:width .45s;mask-image:repeating-linear-gradient(90deg,#000 0 10px,transparent 10px 15px)}\n#alert .ap{font:600 43px var(--display);min-width:140px;text-align:right;white-space:nowrap}\n#alert .ap small{font-size:23px;margin-left:6px;color:var(--muted)}\n#alert.text .at,#alert.text .ap{display:none}\n#alert .am{font-size:24px;color:var(--ink2);white-space:nowrap;text-align:right;overflow:hidden;text-overflow:ellipsis}\n\n/* ---------- klidovy rezim ---------- */\n#organism{position:absolute;left:0;top:0;width:100%;height:100%;z-index:1;pointer-events:none;opacity:0;transition:opacity 1.8s}\n.panel-root.mode-ambient #organism{opacity:.28}\n#ambient{position:absolute;inset:0;z-index:4;display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px 80px 36px}\n.panel-root.mode-ambient #ambient{display:flex;opacity:.5;animation:ambIn 1.2s ease both,ambientTravel 173s ease-in-out infinite alternate}\n.panel-root.mode-ambient header,.panel-root.mode-ambient .mid,.panel-root.mode-ambient .bot,.panel-root.mode-ambient #alert{display:none}\n.panel-root.mode-ambient .bg,.panel-root.mode-ambient .scan{display:none}\n#ambient .aclock{font:500 190px/1 var(--display);letter-spacing:1px;color:#eef7ff;font-variant-numeric:tabular-nums}\n#ambient .adate{font-size:32px;letter-spacing:6px;color:#7f9db1;margin-top:8px;text-transform:uppercase}\n/* Kruhu muze byt az ctyri - cim vic jich je, tim mensi, a v uzkem\n   prostoru se prelomi do dvou rad. --ak je jejich meritko. */\n#ambient .arow{--ak:1;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;\n gap:40px 90px;margin-top:30px;max-width:100%}\n#ambient .arow.c3{--ak:.8}\n#ambient .arow.c4{--ak:.72}\n#ambient .acell{--accent:var(--a1);--rgb:54,216,255;position:relative;flex:none;\n width:calc(460px*var(--ak));height:calc(460px*var(--ak));display:flex;flex-direction:column;\n align-items:center;justify-content:center;border-radius:50%;\n background:radial-gradient(circle,rgba(var(--rgb),.08),#02070bb0 57%,transparent 68%)}\n#ambient .acell:nth-child(2){--accent:var(--a2);--rgb:255,139,62}\n#ambient .acell:nth-child(3){--accent:var(--a3);--rgb:138,245,188}\n#ambient .acell:nth-child(4){--accent:var(--a4);--rgb:196,138,255}\n#ambient .acell::before{content:'';position:absolute;inset:0;border-radius:50%;border:3px solid rgba(var(--rgb),.3);border-top:5px solid var(--accent);border-bottom:5px solid var(--accent);transform:rotate(-35deg);box-shadow:0 0 35px rgba(var(--rgb),.1),inset 0 0 35px rgba(var(--rgb),.08)}\n#ambient .acell::after{content:'';position:absolute;inset:16px;border-radius:50%;border:1px dashed rgba(var(--rgb),.4);pointer-events:none}\n/* Popisek zustava UVNITR kruhu: dlouhy nazev entity driv pretekl pres\n   sousedni budik. Co se nevejde, konci trema teckami. */\n#ambient .alabel{max-width:66%;font-size:calc(28px*var(--ak));font-weight:700;\n letter-spacing:calc(5px*var(--ak));color:var(--accent);margin-bottom:calc(10px*var(--ak));\n text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}\n#ambient .aval{font:700 calc(200px*var(--ak))/.9 var(--display);letter-spacing:calc(-8px*var(--ak));\n color:#d6e1e8;font-variant-numeric:tabular-nums;max-width:86%;overflow:hidden;text-overflow:ellipsis}\n/* Delsi cislo = mensi pismo, at se vejde do kruhu cele. */\n#ambient .aval.l4{font-size:calc(150px*var(--ak));letter-spacing:calc(-5px*var(--ak))}\n#ambient .aval.l5{font-size:calc(122px*var(--ak));letter-spacing:calc(-4px*var(--ak))}\n#ambient .aval.l6{font-size:calc(104px*var(--ak));letter-spacing:calc(-3px*var(--ak))}\n#ambient .aval.l7{font-size:calc(88px*var(--ak));letter-spacing:calc(-2px*var(--ak))}\n#ambient .aval.txt{font-size:calc(74px*var(--ak));letter-spacing:0;text-align:center;white-space:nowrap}\n#ambient .aunit{font:calc(31px*var(--ak)) var(--mono);color:var(--accent);margin-top:calc(8px*var(--ak));min-height:calc(31px*var(--ak))}\n#ambient .astate{max-width:82%;font-size:calc(23px*var(--ak));letter-spacing:3px;margin-top:calc(14px*var(--ak));\n text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n#ambient .aline{margin-top:26px;font:26px var(--mono);letter-spacing:2px;color:#7f9db1;white-space:nowrap;\n max-width:92%;overflow:hidden;text-overflow:ellipsis}\n#ambient .aline b{font-weight:500;color:#cfe0ea}\n#ambient .atag{font:22px var(--mono);letter-spacing:4px;color:#8ca9bc;margin-top:30px;display:flex;align-items:center;gap:14px;text-transform:uppercase}\n#ambient .atag i{width:8px;height:8px;background:var(--a1);box-shadow:0 0 12px var(--a1);animation:breath 3s ease-in-out infinite}\n/* Na vysku se kruhy poskladaji po dvou - vedle sebe by nezbylo na cisla. */\n.panel-root.is-portrait #ambient .arow{--ak:.72;gap:36px 50px;max-width:96%}\n.panel-root.is-portrait #ambient .aclock{font-size:150px}\n\n/* ---------- zvetsena sekce ----------\n   Okno se rozbali z mista, kde sekce stoji. Zadny efekt navic: jen\n   prechod polohy a velikosti, aby bylo videt, co se zvetsilo. */\n#zoom{position:absolute;inset:0;z-index:85;display:none;align-items:center;justify-content:center;\n padding:2.5vmin;background:#01050898;backdrop-filter:blur(3px)}\n.panel-root.zooming #zoom{display:flex}\n.panel-root.zooming #stage{filter:blur(2px) saturate(.7)}\n#zoom .zwin{position:relative;width:min(1600px,96vw);height:min(900px,92vh);\n transition:transform .42s cubic-bezier(.16,.84,.34,1),opacity .3s;transform-origin:center}\n#zoom #zoomBody{position:absolute;inset:0;--k:1;display:flex}\n#zoom #zoomBody .mid{flex:1;min-width:0;--k:1}\n#zoom #zoomBody .pages,#zoom #zoomBody .page{flex:1;min-width:0;display:flex}\n#zoom #zoomBody .camw{min-height:60vh}\n#zoom .zclose{position:absolute;top:-1px;right:-1px;z-index:2;width:66px;height:66px;\n font-size:30px;color:#cfe4f2;background:#0b1b24e0;border:1px solid #2d5768;border-radius:0 4px 0 12px}\n#zoom .zclose:active{background:#16303d}\n/* Zvetsena sekce uz se nezvetsuje dal. */\n#zoom .card{border-radius:6px 28px 6px 6px}\n\n/* ---------- okno s ovladanim entity ---------- */\n#detail{position:absolute;inset:0;z-index:105;display:none;align-items:center;justify-content:center;\n padding:3vmin;background:#010508b0;backdrop-filter:blur(3px)}\n.panel-root.detailing #detail{display:flex}\n.dwin{width:min(860px,94vw);max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;\n background:linear-gradient(150deg,#0c1720,#050a0e);border:1px solid #2d5768;border-radius:6px 24px 6px 6px;\n box-shadow:0 30px 80px #000a;animation:dwinIn .26s cubic-bezier(.2,.8,.3,1) both}\n@keyframes dwinIn{from{opacity:0;transform:translateY(26px) scale(.96)}to{opacity:1;transform:none}}\n.dhead{display:flex;align-items:center;gap:18px;padding:20px 18px 16px 24px;border-bottom:1px solid #1b2a35}\n.dnames{flex:1;min-width:0}\n.dnames b{display:block;font-size:30px;font-weight:700;letter-spacing:2px;color:#eaf4ff;\n white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase}\n.dnames i{display:block;font:14px var(--mono);color:#6f8798;font-style:normal;\n white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.dval{flex:none;font:600 40px var(--display);color:var(--a1);font-variant-numeric:tabular-nums;white-space:nowrap}\n.dbody{padding:20px 24px 26px}\n.dbtn{min-height:60px;padding:0 22px;font:17px/1 var(--display);letter-spacing:2px;text-transform:uppercase;\n color:#cfe4f2;background:#0e1d27;border:1px solid #2d5768;border-radius:4px}\n.dbtn:active{background:#16303d}\n.dbtn.big{flex:1;min-height:76px;font-size:21px}\n.dbtn.on{color:#04121a;background:var(--a1);border-color:var(--a1)}\n.dbtn.off{color:#cfd9e0;background:#1b2730;border-color:#3b4b57}\n.dbtn.x{flex:none;width:56px;min-height:56px;padding:0;font-size:22px;border-radius:50%}\n.dbtn.rnd{width:84px;min-height:84px;font-size:36px;border-radius:50%}\n.drow{display:flex;gap:12px;margin-bottom:18px}\n.drow.wrap{flex-wrap:wrap}\n.dlbl{font:13px var(--mono);letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:6px 0 10px}\n.dslide{margin-bottom:20px}\n.dsl{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;\n font:15px var(--mono);letter-spacing:1px;color:var(--muted)}\n.dsl b{font:600 26px var(--display);color:#eaf4ff}\n/* Posuvnik musi byt tlusty - na tabletu se trefuje prstem, ne mysi. */\n.dslide input[type=range]{width:100%;height:52px;appearance:none;-webkit-appearance:none;background:transparent}\n.dslide input[type=range]::-webkit-slider-runnable-track{height:22px;border-radius:11px;\n background:linear-gradient(90deg,#123244,#36d8ff55);border:1px solid #2d5768}\n.dslide input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;\n width:46px;height:46px;margin-top:-13px;border-radius:50%;background:var(--a1);border:3px solid #04121a;\n box-shadow:0 0 16px #36d8ff70}\n.dslide.warm input[type=range]::-webkit-slider-runnable-track{background:linear-gradient(90deg,#ff9b3a,#cfe6ff)}\n.dslide.warm input[type=range]::-webkit-slider-thumb{background:#ffd7a8}\n.dsw{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}\n.dsw i{display:block;height:58px;border-radius:6px;border:1px solid #ffffff22}\n.dsw i:active{outline:3px solid #fff8}\n.dtemp{display:flex;align-items:center;justify-content:center;gap:26px;margin-bottom:20px}\n.dtemp b{font:600 62px var(--display);color:#eaf4ff;font-variant-numeric:tabular-nums;min-width:200px;text-align:center}\n.dgraph{position:relative;height:190px;margin:18px 0 6px;--k:1;--accent:var(--a1);--rgb:54,216,255}\n.dnote{font:14px var(--mono);color:#6f8798;letter-spacing:1px;margin-top:14px}\n/* Dlazdice pod prstem pri dlouhem stisku - at je poznat, ze se neco deje. */\n.lt.held,.card.held{outline:2px solid rgba(var(--rgb),.5);outline-offset:-2px}\n\n/* ---------- prekryvy stavu ---------- */\n.overlay{position:absolute;inset:0;z-index:70;display:none;flex-direction:column;align-items:center;justify-content:center;padding:5vmin;text-align:center}\n.panel-root.mode-down .ov-down,.panel-root.mode-setup .ov-setup{display:flex}\n.panel-root.mode-down #stage,.panel-root.mode-setup #stage{visibility:hidden;opacity:0}\n.panel-root.mode-down .bg,.panel-root.mode-down .scan{display:none}\n.state-kicker{font:clamp(10px,2.4vmin,25px) var(--mono);letter-spacing:.3em;text-transform:uppercase}\n.ov-down{background:radial-gradient(ellipse at 50% 45%,#35200d,#020405 70%)}\n.ov-down .state-kicker{color:var(--a2);margin-bottom:3vmin}\n.signal-mark{display:flex;align-items:center;justify-content:center;gap:1.3vmin;width:19vmin;height:19vmin;border:1px solid #986032;background:#29190b;clip-path:polygon(20% 0,100% 0,100% 80%,80% 100%,0 100%,0 20%);margin-bottom:3vmin}\n.signal-mark i{width:1.6vmin;background:var(--a2);animation:breath 1.8s ease-in-out infinite}\n.signal-mark i:nth-child(1){height:4vmin}.signal-mark i:nth-child(2){height:8vmin;animation-delay:.2s}.signal-mark i:nth-child(3){height:12vmin;animation-delay:.4s}\n.ov-down h2{font-size:8vmin;letter-spacing:.08em;text-transform:uppercase;color:#ffc28b}\n.ov-down p{font-size:3vmin;max-width:85vw;color:#c5ad97;margin-top:2vmin}\n.ov-down .state-note{font:2.3vmin var(--mono);color:#ac815a;letter-spacing:.08em;border-top:1px solid #604124;padding-top:3vmin;margin-top:4vmin}\n.ov-setup{background:radial-gradient(ellipse at 50% 40%,#0a2b3b,#020508 68%)}\n.ov-setup .state-kicker{color:var(--a1);margin-bottom:3vmin}\n.ov-setup h2{font-size:6vmin;letter-spacing:.08em;text-transform:uppercase;color:#cfe9f6}\n.ov-setup p{font-size:2.8vmin;max-width:80vw;color:#9fc0d2;margin-top:2vmin;line-height:1.5}\n.bigbtn{margin-top:5vmin;padding:2.2vmin 5vmin;font:3vmin var(--display);letter-spacing:.2em;text-transform:uppercase;\n color:#04121a;background:var(--a1);border:none;border-radius:3px}\n.bigbtn.ghost{background:transparent;color:var(--a1);border:1px solid var(--a1)}\n\n/* ---------- start ---------- */\n#boot{position:absolute;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.4vmin;background:radial-gradient(ellipse at 50% 35%,#0a2b3b,#020508 65%);overflow:hidden}\n#boot::before,#boot::after{content:'';position:absolute;left:50%;top:43%;width:69vmin;height:69vmin;border:1px solid #36d8ff25;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}\n#boot::after{width:83vmin;height:83vmin;border-style:dashed;border-color:#36d8ff15}\n/* Po dobehnuti uz nesmi chytat dotyky - jinak by prvni klepnuti nebo\n   prejeti prstem spadlo do prazdna. */\n#boot.done{animation:bootOut .7s ease forwards;pointer-events:none}\n#boot .boot-emblem{position:relative;width:15vmin;height:15vmin;border:2px solid var(--a1);border-left-color:transparent;border-right-color:var(--a2);border-radius:50%;margin-bottom:1vmin;box-shadow:0 0 7vmin #36d8ff20;animation:reactorIn 1.8s ease both}\n#boot .boot-emblem::before{content:'';position:absolute;inset:3vmin;background:linear-gradient(135deg,var(--a1) 0 32%,transparent 32% 44%,var(--a1) 44% 62%,transparent 62% 74%,var(--a2) 74%);clip-path:polygon(20% 0,100% 0,80% 100%,0 100%)}\n#boot .boot-kicker{font:2.2vmin var(--mono);letter-spacing:.3em;text-transform:uppercase;color:#75b3cf;z-index:1}\n#boot .bl{width:54vw;max-width:900px;height:1.3vmin;background:#142833;margin-top:2vmin;z-index:1;overflow:hidden}\n#boot .bl i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--a1) 70%,#fff);transition:width .35s;mask-image:repeating-linear-gradient(90deg,#000 0 12px,transparent 12px 17px)}\n#boot .bt{font:2.6vmin var(--mono);height:4vmin;color:#b3cfdd;letter-spacing:.1em;z-index:1}\n#boot .boot-steps{display:flex;gap:2vmin;z-index:1}\n#boot .boot-steps i{width:5vmin;height:.4vmin;background:#284052}\n#boot .boot-steps i.active{background:var(--a1)}\n\n/* ---------- drobnosti ---------- */\n#pulse{position:absolute;inset:0;z-index:60;pointer-events:none;opacity:0;background:linear-gradient(100deg,transparent 20%,#36d8ff30 48%,#ff8b3e20 52%,transparent 80%)}\n#pulse.go{animation:shock 1.1s ease-out forwards}\n#toast{position:absolute;left:50%;bottom:6vmin;transform:translateX(-50%) translateY(20px);z-index:95;opacity:0;\n padding:14px 28px;background:#08131de6;border:1px solid #34576c;color:#cfe4f2;font:2.2vmin var(--mono);letter-spacing:1px;\n transition:opacity .3s,transform .3s;pointer-events:none;max-width:80vw;text-align:center}\n#toast.show{opacity:1;transform:translateX(-50%)}\n\n/* Cerna, dokud Android dokoncuje sve zhasinani - pod ni nesmi nic bezet. */\n.panel-root.oled-off{background:#000}\n.panel-root.oled-off > *{visibility:hidden!important;pointer-events:none!important}\n.panel-root.oled-off *{animation:none!important}\n\n@keyframes breath{0%,100%{opacity:.35}50%{opacity:1}}\n@keyframes spin{to{transform:rotate(360deg)}}\n@keyframes shock{0%{opacity:0;transform:translateX(-100%)}30%{opacity:1}100%{opacity:0;transform:translateX(100%)}}\n@keyframes reactorIn{from{opacity:0;transform:rotate(-160deg) scale(.6)}to{opacity:1;transform:rotate(0) scale(1)}}\n@keyframes bootOut{to{opacity:0;visibility:hidden;filter:blur(5px)}}\n@keyframes rise{from{opacity:0;transform:translateY(24px);filter:blur(3px)}to{opacity:1;transform:none;filter:none}}\n.anim{animation:rise .7s cubic-bezier(.2,.75,.3,1) backwards}\n@keyframes ambIn{from{opacity:0}to{opacity:.5}}\n@keyframes ambientTravel{0%{transform:translate(-140px,-20px)}33%{transform:translate(100px,12px)}66%{transform:translate(-60px,20px)}100%{transform:translate(140px,-12px)}}\n@media(prefers-reduced-motion:reduce){\n *,*::before,*::after{animation:none!important;transition:none!important}\n #organism,#boot{display:none}\n}\n\n:host{display:block;position:relative;contain:content}\n.panel-root{position:relative;width:100%;overflow:hidden;border-radius:12px;background:#020507;color:#f2f8ff}\n#stage{position:absolute;top:0;left:0;transform-origin:top left;height:auto;min-height:0}\n#boot,#organism,#pulse,#toast,#editor,#picker,.overlay,#vhProbe{display:none!important}\n.bg,.scan{position:absolute;inset:0}\n";
 
 /* ------------------------------------------------------------------
    Prevody a slova. Nic z toho nesaha na DOM, aby to sly testy spustit
@@ -290,12 +290,12 @@ var Layout = (function () {
        graph  - krivka za poslednich N hodin
        number - jen velke cislo
      Dlazdice a ukazatele znaji value / bar / graph. */
-  var CARD_VIEWS = ['gauge', 'bar', 'graph', 'number'];
+  var CARD_VIEWS = ['gauge', 'bar', 'graph', 'number', 'camera'];
   var ITEM_VIEWS = ['value', 'bar', 'graph'];
 
   /* Kolik se toho vejde. Vic sekci = mensi okna, o tom rozhoduje uzivatel. */
   var MAX_CARDS = 6, MAX_PANELS = 4, MAX_ITEMS = 8, MAX_METERS = 4, MAX_TILES = 6;
-  var MAX_AMBIENT = 4;
+  var MAX_AMBIENT = 4, MAX_PAGES = 5;
 
   function id(prefix) {
     return prefix + '-' + Math.random().toString(36).slice(2, 8);
@@ -316,9 +316,17 @@ var Layout = (function () {
 
   /** Prazdny panel - to, co uzivatel uvidi pred prvni upravou. */
   function empty() {
-    return { v: VERSION, title: '', subtitle: '', weather: '', cards: [], panels: [],
+    return { v: VERSION, title: '', subtitle: '', weather: '',
+             pages: [newPage('Panel')],
+             ambient: emptyAmbient(), alert: null, doorbell: null,
+             control: { screen: '', brightness: '' } };
+  }
+
+  /** Stranka = jedna obrazovka panelu; prejizdi se mezi nimi prstem. */
+  function newPage(name) {
+    return { id: id('page'), name: name || 'Nová stránka',
              grid: { cols: 0, rows: 0 }, panelGrid: { cols: 0 },
-             ambient: emptyAmbient(), alert: null, control: { screen: '', brightness: '' } };
+             cards: [], panels: [] };
   }
 
   function emptyAmbient() {
@@ -334,6 +342,7 @@ var Layout = (function () {
   function newCard() {
     return {
       id: id('card'), name: 'Nová sekce', code: '', tone: 'cyan', view: 'gauge', hours: 6,
+      refresh: 10,
       dial: { entity: '', caption: '', unit: '', min: 0, max: 100, decimals: null, levels: [] },
       meters: [], tiles: []
     };
@@ -403,6 +412,8 @@ var Layout = (function () {
       tone: tone(r.tone),
       view: CARD_VIEWS.indexOf(r.view) >= 0 ? r.view : 'gauge',
       hours: Math.max(1, Math.min(72, nOr(r.hours, 6))),
+      // jak casto se obnovi snimek z kamery (s)
+      refresh: Math.max(2, Math.min(120, nOr(r.refresh, 10))),
       dial: {
         entity: str(d.entity, ''),
         caption: str(d.caption, ''),
@@ -432,12 +443,32 @@ var Layout = (function () {
     };
   }
 
+  function normPage(raw, fallbackName) {
+    var r = raw || {};
+    return {
+      id: str(r.id, id('page')),
+      name: str(r.name, fallbackName || 'Panel'),
+      // Kolik oken na radek a kolik rad - 0 znamena automaticky.
+      grid: { cols: count((r.grid || {}).cols, 4), rows: count((r.grid || {}).rows, 3) },
+      panelGrid: { cols: count((r.panelGrid || {}).cols, MAX_PANELS) },
+      cards: (Array.isArray(r.cards) ? r.cards : []).slice(0, MAX_CARDS).map(normCard),
+      panels: (Array.isArray(r.panels) ? r.panels : []).slice(0, MAX_PANELS).map(normPanel)
+    };
+  }
+
   /** Jediny vstupni bod: cokoli prijde, odejde platne rozvrzeni. */
   function normalize(raw) {
     var r = raw || {};
     if (typeof r === 'string') {
       try { r = JSON.parse(r); } catch (e) { r = {}; }
     }
+    // Drive mel panel jedinou obrazovku (cards a panels primo v korenu).
+    // Starsi rozvrzeni se z ni stane prvni strankou.
+    var pages = Array.isArray(r.pages) && r.pages.length ? r.pages : [{
+      name: 'Panel', grid: r.grid, panelGrid: r.panelGrid,
+      cards: r.cards, panels: r.panels
+    }];
+
     var out = {
       v: VERSION,
       title: str(r.title, ''),
@@ -445,16 +476,13 @@ var Layout = (function () {
       // Pocasi v zahlavi - u panelu na zdi to je jedna z mala veci,
       // kvuli kterym k nemu clovek opravdu dojde.
       weather: str(r.weather, ''),
-      cards: (Array.isArray(r.cards) ? r.cards : []).slice(0, MAX_CARDS).map(normCard),
-      panels: (Array.isArray(r.panels) ? r.panels : []).slice(0, MAX_PANELS).map(normPanel),
+      pages: pages.slice(0, MAX_PAGES).map(function (p, i) {
+        return normPage(p, i === 0 ? 'Panel' : 'Stránka ' + (i + 1));
+      }),
       ambient: emptyAmbient(),
-      // Kolik oken na radek a kolik rad - 0 znamena automaticky.
-      grid: {
-        cols: count((r.grid || {}).cols, 4),
-        rows: count((r.grid || {}).rows, 3)
-      },
-      panelGrid: { cols: count((r.panelGrid || {}).cols, MAX_PANELS) },
       alert: null,
+      // Zvonek u dveri: kdyz cidlo naskoci, panel ukaze kameru.
+      doorbell: null,
       // Ovladani tabletu z Home Assistantu: prepinac pro displej a
       // cislo pro jas. Panel je jen posloucha, sam je nemeni.
       control: {
@@ -462,6 +490,7 @@ var Layout = (function () {
         brightness: str((r.control || {}).brightness, '')
       }
     };
+
     var a = r.ambient || {};
     // Drive byly v klidovem rezimu presne dve hodnoty (left a right),
     // ted je to seznam - starsi rozvrzeni se prevede.
@@ -486,6 +515,28 @@ var Layout = (function () {
         note: str(r.alert.note, '')
       };
     }
+
+    if (r.doorbell && r.doorbell.camera && r.doorbell.trigger) {
+      out.doorbell = {
+        camera: str(r.doorbell.camera, ''),
+        trigger: str(r.doorbell.trigger, ''),
+        name: str(r.doorbell.name, 'Zvonek'),
+        seconds: Math.max(5, Math.min(300, nOr(r.doorbell.seconds, 30)))
+      };
+    }
+    return out;
+  }
+
+  /** Vsechny sekce a panely napric strankami. */
+  function allCards(l) {
+    var out = [];
+    (l.pages || []).forEach(function (p) { out = out.concat(p.cards || []); });
+    return out;
+  }
+
+  function allPanels(l) {
+    var out = [];
+    (l.pages || []).forEach(function (p) { out = out.concat(p.panels || []); });
     return out;
   }
 
@@ -493,12 +544,12 @@ var Layout = (function () {
   function entities(l) {
     var out = [];
     function add(e) { if (e && out.indexOf(e) < 0) out.push(e); }
-    (l.cards || []).forEach(function (c) {
+    allCards(l).forEach(function (c) {
       add(c.dial.entity);
       (c.meters || []).forEach(function (m) { add(m.entity); });
       (c.tiles || []).forEach(function (t) { add(t.entity); });
     });
-    (l.panels || []).forEach(function (p) {
+    allPanels(l).forEach(function (p) {
       (p.items || []).forEach(function (i) { add(i.entity); });
     });
     if (l.ambient) {
@@ -508,6 +559,7 @@ var Layout = (function () {
     if (l.alert) add(l.alert.entity);
     if (l.control) { add(l.control.screen); add(l.control.brightness); }
     if (l.weather) add(l.weather);
+    if (l.doorbell) { add(l.doorbell.camera); add(l.doorbell.trigger); }
     return out;
   }
 
@@ -524,13 +576,13 @@ var Layout = (function () {
       }
       out.push({ entity: entity, hours: hours });
     }
-    (l.cards || []).forEach(function (c) {
+    allCards(l).forEach(function (c) {
       if (c.view === 'graph') add(c.dial.entity, c.hours);
       (c.meters || []).concat(c.tiles || []).forEach(function (i) {
         if (i.view === 'graph') add(i.entity, i.hours);
       });
     });
-    (l.panels || []).forEach(function (p) {
+    allPanels(l).forEach(function (p) {
       (p.items || []).forEach(function (i) {
         if (i.view === 'graph') add(i.entity, i.hours);
       });
@@ -539,7 +591,7 @@ var Layout = (function () {
   }
 
   function isEmpty(l) {
-    return !l || ((l.cards || []).length === 0 && (l.panels || []).length === 0);
+    return !l || (allCards(l).length === 0 && allPanels(l).length === 0);
   }
 
   /**
@@ -559,6 +611,7 @@ var Layout = (function () {
     }
 
     var l = empty();
+    var page = l.pages[0];
     var temps = pick('temperature', 2);
     var hums = pick('humidity', 2);
     var bats = pick('battery', 4);
@@ -579,7 +632,7 @@ var Layout = (function () {
         m.name = 'Vlhkost'; m.bar = true; m.min = 0; m.max = 100;
         c.meters.push(m);
       }
-      l.cards.push(c);
+      page.cards.push(c);
     });
 
     if (bats.length) {
@@ -593,7 +646,7 @@ var Layout = (function () {
         it.levels = U.suggest(b).levels;
         return it;
       });
-      l.panels.push(p);
+      page.panels.push(p);
     }
 
     var lights = list.filter(function (s) { return U.domain(s.entity_id) === 'light'; }).slice(0, 4);
@@ -606,7 +659,7 @@ var Layout = (function () {
         it.name = U.name(s);
         return it;
       });
-      l.panels.push(lp);
+      page.panels.push(lp);
     }
 
     // I v klidovem rezimu plati "barva a slovo" - stupne tedy jedou s sebou.
@@ -628,7 +681,7 @@ var Layout = (function () {
     if (!l || !l.ambient || !l.ambient.auto) return l;
     if (l.ambient.cells && l.ambient.cells.length) return l;
     var cells = [];
-    (l.cards || []).forEach(function (c) {
+    allCards(l).forEach(function (c) {
       if (!c.dial.entity || cells.length >= MAX_AMBIENT) return;
       var it = normItem({
         entity: c.dial.entity, name: c.name, unit: c.dial.unit,
@@ -644,10 +697,12 @@ var Layout = (function () {
     VERSION: VERSION, TONES: TONES, ambientFallback: ambientFallback,
     empty: empty, newCard: newCard, newPanel: newPanel, newItem: newItem,
     normalize: normalize, entities: entities, graphed: graphed, isEmpty: isEmpty,
-    fromStates: fromStates, id: id,
+    fromStates: fromStates, id: id, newPage: newPage,
+    allCards: allCards, allPanels: allPanels,
     CARD_VIEWS: CARD_VIEWS, ITEM_VIEWS: ITEM_VIEWS,
     MAX_CARDS: MAX_CARDS, MAX_PANELS: MAX_PANELS, MAX_ITEMS: MAX_ITEMS,
-    MAX_METERS: MAX_METERS, MAX_TILES: MAX_TILES, MAX_AMBIENT: MAX_AMBIENT
+    MAX_METERS: MAX_METERS, MAX_TILES: MAX_TILES, MAX_AMBIENT: MAX_AMBIENT,
+    MAX_PAGES: MAX_PAGES
   };
 })();
 
@@ -1114,6 +1169,8 @@ var Render = (function () {
     var bindings = [];
     // Krivky se neplni ze stavu, ale z historie - drzi se tedy zvlast.
     var graphs = [];
+    // Opakovane obnovovani snimku z kamer; pri prestavbe se rusi.
+    var timers = [];
     // Prvek, na kterem se prepinaji stavove tridy. V aplikaci je to <body>,
     // v karte pro Lovelace obal karty - jinam se karta sahat nesmi.
     var rootEl = ctx.root || document.body;
@@ -1207,24 +1264,68 @@ var Render = (function () {
       });
     }
 
-    /* ---------- sekce ----------
-       Trida n1..n6 je vychozi rozvrzeni podle poctu sekci. Kdyz si
-       uzivatel rekne o vlastni pocet sloupcu nebo rad, prebije ji
-       primo nastavenou mrizkou. */
-    var mid = el('div', 'mid n' + Math.min(6, layout.cards.length));
-    applyGrid(mid, layout.grid, layout.cards.length, 3);
-    layout.cards.forEach(function (card, idx) {
-      mid.appendChild(buildCard(card, idx, bind, ctx, graphs));
-    });
-    if (layout.cards.length) host.appendChild(mid);
+    /* ---------- stranky ----------
+       Kazda stranka je jedna obrazovka panelu; prejizdi se mezi nimi
+       prstem. Vsechny se postavi rovnou, takze prechod je jen posun -
+       nic se pri prejeti nedopocitava. */
+    var pages = layout.pages || [];
+    var pagesEl = el('div', 'pages');
+    var pageEls = [];
+    pages.forEach(function (page, pi) {
+      var pe = el('div', 'page');
+      var mid = el('div', 'mid n' + Math.min(6, page.cards.length));
+      applyGrid(mid, page.grid, page.cards.length, 3);
+      page.cards.forEach(function (card, idx) {
+        mid.appendChild(buildCard(card, idx, bind, ctx, graphs, timers));
+      });
+      if (page.cards.length) pe.appendChild(mid);
 
-    /* ---------- spodni panely ---------- */
-    var bot = el('div', 'bot n' + Math.min(4, layout.panels.length));
-    applyGrid(bot, layout.panelGrid, layout.panels.length, 4);
-    layout.panels.forEach(function (p, idx) {
-      bot.appendChild(buildPanel(p, idx, bind, ctx, graphs));
+      var bot = el('div', 'bot n' + Math.min(4, page.panels.length));
+      applyGrid(bot, page.panelGrid, page.panels.length, 4);
+      page.panels.forEach(function (p, idx) {
+        bot.appendChild(buildPanel(p, idx, bind, ctx, graphs));
+      });
+      if (page.panels.length) pe.appendChild(bot);
+
+      pageEls.push({ el: pe, mid: mid, bot: bot, page: page });
+      pagesEl.appendChild(pe);
     });
-    if (layout.panels.length) host.appendChild(bot);
+    host.appendChild(pagesEl);
+
+    /* Tecky stranek - jen kdyz je stranek vic. Zaroven slouzi jako
+       tlacitka, at se da prepnout i bez prejeti prstem. */
+    var dotsEl = null;
+    if (pages.length > 1) {
+      dotsEl = el('div', 'pdots');
+      pages.forEach(function (page, i) {
+        var d = el('i', '');
+        d.title = page.name;
+        d.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (ctx.onPage) ctx.onPage(i);
+        });
+        dotsEl.appendChild(d);
+      });
+      host.appendChild(dotsEl);
+    }
+
+    /** Prepne na stranku: posune pas a rozsviti spravnou tecku. */
+    function showPage(index) {
+      var n = pageEls.length;
+      if (!n) return 0;
+      var i = Math.max(0, Math.min(n - 1, index));
+      pagesEl.style.transform = 'translateX(' + (-i * 100) + '%)';
+      for (var j = 0; j < pageEls.length; j++) {
+        pageEls[j].el.classList.toggle('on', j === i);
+      }
+      if (dotsEl) {
+        for (var k = 0; k < dotsEl.children.length; k++) {
+          dotsEl.children[k].classList.toggle('on', k === i);
+        }
+      }
+      return i;
+    }
+    showPage(0);
 
     /* ---------- klidova obrazovka ----------
        Az ctyri hodnoty ve velkych kruzich. Popisek je uvnitr kruhu nad
@@ -1288,7 +1389,7 @@ var Render = (function () {
     }
 
     /* ---------- prazdny panel ---------- */
-    if (!layout.cards.length && !layout.panels.length) {
+    if (!Layout.allCards(layout).length && !Layout.allPanels(layout).length) {
       var hint = el('div', 'pane panel anim');
       hint.style.gridColumn = '1 / -1';
       var inner = el('div', 'pempty');
@@ -1296,7 +1397,8 @@ var Render = (function () {
       hint.appendChild(inner);
       var wrap = el('div', 'mid n1');
       wrap.appendChild(hint);
-      host.insertBefore(wrap, alertBar.nextSibling);
+      if (pageEls.length) pageEls[0].el.appendChild(wrap);
+      else host.insertBefore(wrap, alertBar.nextSibling);
     }
 
     /* ---------- obnova ---------- */
@@ -1321,11 +1423,13 @@ var Render = (function () {
      * pomeru stran - CSS trida n1..n6 uz jen urcuje vychozi rozlozeni.
      */
     function scale() {
-      fitScale(mid, { cols: columnsOf(mid, layout.cards.length, 3),
-                      rows: rowsOf(mid, layout.cards.length, layout.grid),
-                      refW: 1150, refH: 840, min: 0.34, max: 1.12 });
-      fitScale(bot, { cols: columnsOf(bot, layout.panels.length, 4),
-                      rows: 1, refW: 1150, refH: 0, min: 0.5, max: 1 });
+      pageEls.forEach(function (pg) {
+        fitScale(pg.mid, { cols: columnsOf(pg.mid, pg.page.cards.length, 3),
+                           rows: rowsOf(pg.mid, pg.page.cards.length, pg.page.grid),
+                           refW: 1150, refH: 840, min: 0.34, max: 1.12 });
+        fitScale(pg.bot, { cols: columnsOf(pg.bot, pg.page.panels.length, 4),
+                           rows: 1, refW: 1150, refH: 0, min: 0.5, max: 1 });
+      });
     }
 
     /** Nova historie jedne entity - prekresli vsechny jeji krivky. */
@@ -1352,6 +1456,13 @@ var Render = (function () {
       redraw: redraw,
       scale: scale,
       badge: badge,
+      /** Zastavi obnovovani kamer - vola se pred prestavbou panelu. */
+      destroy: function () {
+        timers.forEach(function (t) { clearInterval(t); });
+        timers.length = 0;
+      },
+      pages: pageEls.length,
+      showPage: showPage,
       clock: { t: clockT, d: clockD, aTime: aClock, aDate: aDate }
     };
   }
@@ -1360,7 +1471,7 @@ var Render = (function () {
      Sekce ukazuje jednu hlavni hodnotu - a uzivatel si vybira, jak:
      budikem, sloupcem, krivkou nebo holym cislem. Vsechny ctyri mluvi
      stejne: velke cislo, jednotka a slovo o stavu. */
-  function buildCard(card, idx, bind, ctx, graphs) {
+  function buildCard(card, idx, bind, ctx, graphs, timers) {
     var sec = el('section', 'pane card anim' + toneClass(card.tone));
     sec.style.animationDelay = (0.06 + idx * 0.08) + 's';
 
@@ -1392,7 +1503,7 @@ var Render = (function () {
     // uprostred, ne nalepena vlevo s prazdnem vedle sebe.
     var solo = !(card.meters && card.meters.length) && !(card.tiles && card.tiles.length);
     var body = el('div', 'cbody' + (solo ? ' solo' : ''));
-    body.appendChild(buildVisual(card, bind, accent, graphs));
+    body.appendChild(buildVisual(card, bind, accent, graphs, ctx, timers));
 
     var right = el('div', 'cright');
     (card.meters || []).forEach(function (m) {
@@ -1409,7 +1520,7 @@ var Render = (function () {
   }
 
   /* ---------- hlavni hodnota sekce ---------- */
-  function buildVisual(card, bind, accent, graphs) {
+  function buildVisual(card, bind, accent, graphs, ctx, timers) {
     var d = card.dial;
     var view = card.view || 'gauge';
     var nEl = el('div', 'n', '--');
@@ -1456,6 +1567,54 @@ var Render = (function () {
         draw: function (series) {
           var r = chart.draw(series, card.hours || 6, d.decimals);
           gempty.style.display = r ? 'none' : '';
+        }
+      });
+
+    } else if (view === 'camera') {
+      // Snimek z kamery. Home Assistant posila adresu i s pristupovym
+      // tokenem v atributu entity_picture, takze staci obrazek nacist -
+      // proud videa by na levnem tabletu jen zral proud a pamet.
+      wrap = el('div', 'camw');
+      var img = el('img', 'cam');
+      img.alt = card.name || 'kamera';
+      var camNote = el('div', 'camnote', 'čekám na snímek');
+      wrap.appendChild(img);
+      wrap.appendChild(camNote);
+      var lastSrc = '';
+      var camTimer = null;
+
+      var refreshCam = function (st) {
+        var pic = st && st.attributes ? st.attributes.entity_picture : '';
+        if (!pic) { camNote.style.display = ''; img.style.display = 'none'; return; }
+        var base = (ctx.baseUrl || '').replace(/\/+$/, '');
+        var url = /^https?:/.test(pic) ? pic : base + pic;
+        // Cache-buster: bez nej by prohlizec ukazoval porad tyz snimek.
+        img.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now();
+        lastSrc = url;
+      };
+      img.addEventListener('load', function () {
+        camNote.style.display = 'none';
+        img.style.display = '';
+      });
+      img.addEventListener('error', function () {
+        camNote.textContent = 'snímek se nenačetl';
+        camNote.style.display = '';
+        img.style.display = 'none';
+      });
+
+      setVisual = function () {};
+      bind(d.entity, function (st) {
+        if (!st) { camNote.textContent = 'entita není'; camNote.style.display = ''; return; }
+        if (!lastSrc) refreshCam(st);
+        if (!camTimer) {
+          camTimer = setInterval(function () {
+            // Prekreslovat jen kdyz je stranka videt - zhasnuty nebo
+            // schovany panel nemusi tahat obrazky.
+            if (document.hidden || document.body.classList.contains('oled-off')) return;
+            var cur = ctx.states ? ctx.states(d.entity) : st;
+            refreshCam(cur || st);
+          }, Math.max(2, card.refresh || 10) * 1000);
+          timers.push(camTimer);
         }
       });
 
@@ -1733,21 +1892,25 @@ function cardLayout(config) {
     // Rozvržení vyexportované z aplikace se dá vložit rovnou.
     return Layout.normalize(config.layout);
   }
-  var out = {
-    title: config.title || '',
-    subtitle: config.subtitle || '',
-    weather: config.weather || '',
+  var page = {
+    name: config.title || 'Panel',
     // columns/rows: kolik sekci na radek a kolik rad. Bez nich se
     // rozvrzeni poradi samo podle poctu sekci.
     grid: { cols: config.columns || 0, rows: config.rows || 0 },
     panelGrid: { cols: config.panel_columns || 0 },
-    cards: [], panels: [], ambient: {}, alert: config.alert || null
+    cards: [], panels: []
+  };
+  var out = {
+    title: config.title || '',
+    subtitle: config.subtitle || '',
+    weather: config.weather || '',
+    pages: [page], ambient: {}, alert: config.alert || null
   };
   (config.sections || config.cards || []).forEach(function (s) {
-    out.cards.push({
+    page.cards.push({
       id: s.id, name: s.name, code: s.code, tone: s.tone,
-      // view: gauge (vychozi) | bar | graph | number, hours = okno krivky
-      view: s.view, hours: s.hours,
+      // view: gauge (vychozi) | bar | graph | number | camera
+      view: s.view, hours: s.hours, refresh: s.refresh,
       dial: {
         entity: s.entity, caption: s.caption, unit: s.unit, attribute: s.attribute,
         decimals: s.decimals, min: s.min, max: s.max, levels: s.levels
@@ -1755,7 +1918,7 @@ function cardLayout(config) {
       meters: s.meters, tiles: s.tiles
     });
   });
-  (config.panels || []).forEach(function (p) { out.panels.push(p); });
+  (config.panels || []).forEach(function (p) { page.panels.push(p); });
   return Layout.normalize(out);
 }
 
@@ -1765,8 +1928,9 @@ function cardLayout(config) {
  * `entity:` ukazovala budík od 0 do 100 a bez jediného slova.
  */
 function fillFromHass(layout, states) {
-  (layout.cards || []).forEach(function (c) {
+  Layout.allCards(layout).forEach(function (c) {
     if (!c.dial.entity) return;
+    if (c.view === 'camera') return;
     var st = states[c.dial.entity];
     if (!st) return;
     // Rozsah budíku nikdo nezadal - vezmi rozumný podle druhu čidla.
@@ -1830,8 +1994,9 @@ class HaPanelCard extends HTMLElement {
 
   getCardSize() {
     var rows = 1;
-    (this._layout ? this._layout.cards : []).forEach(function () { rows += 6; });
-    (this._layout ? this._layout.panels : []).forEach(function () { rows += 3; });
+    if (!this._layout) return rows;
+    Layout.allCards(this._layout).forEach(function () { rows += 6; });
+    Layout.allPanels(this._layout).forEach(function () { rows += 3; });
     return rows;
   }
 
@@ -1855,6 +2020,7 @@ class HaPanelCard extends HTMLElement {
 
   _build() {
     var self = this;
+    if (this._view && this._view.destroy) this._view.destroy();
     var sr = this.shadowRoot;
     sr.innerHTML = '<style>' + CARD_CSS + '</style>'
       + '<div class="panel-root mode-live">'
@@ -1873,7 +2039,10 @@ class HaPanelCard extends HTMLElement {
       // Dlouhy stisk (a dlazdice nastavena na "Okno s ovladanim") otevre
       // vlastni okno Home Assistanta - v dashboardu je doma a umi vic
       // nez cokoli, co by karta nakreslila sama.
-      onDetail: function (entityId) { self._moreInfo(entityId); }
+      onDetail: function (entityId) { self._moreInfo(entityId); },
+      // Kamera: obrazek z Home Assistanta je na stejnem puvodu jako
+      // dashboard, takze staci adresa z entity_picture.
+      states: function (id) { return self._hass ? self._hass.states[id] : null; }
     });
 
     // Odznak spojení v aplikaci hlásí WebSocket; v Lovelace je spojení
@@ -1984,6 +2153,7 @@ class HaPanelCard extends HTMLElement {
     if (this._timer) { clearInterval(this._timer); this._timer = null; }
     if (this._ro) { this._ro.disconnect(); this._ro = null; }
     if (this._history) this._history.stop();
+    if (this._view && this._view.destroy) this._view.destroy();
   }
 
   connectedCallback() {

@@ -139,6 +139,18 @@ na druhém tabletu stačí **Vložit nastavení ze schránky**.
 Ozubené kolo vpravo nahoře. Dokud neklepneš na **Uložit**, běží panel dál
 podle starého nastavení.
 
+### Stránky
+Panel může mít **až pět stránek** a mezi nimi se **přejíždí prstem** —
+vlevo/vpravo, jako mezi plochami na telefonu. Dole jsou tečky, které
+ukazují, kde jsi, a dají se i zmáčknout. Každá stránka má vlastní sekce,
+panely i rozložení, takže jedna může být domov, druhá kamery a třetí
+energie.
+
+Stránky se přidávají a přejmenovávají nahoře na záložkách *Sekce* i
+*Panely* (blok **Stránky panelu**); šipkami ◀ ▶ se mění jejich pořadí.
+Po odchodu od tabletu (klidový režim) se panel sám vrátí na první
+stránku, takže po návratu vždycky začínáš doma.
+
 ### Sekce
 Hlavní hodnota s ukazateli vedle. Panel unese **šest sekcí** — čím víc jich
 je, tím menší okna; o tom rozhoduješ ty.
@@ -160,6 +172,7 @@ Totéž má i spodní řada: na záložce *Panely* se nastavuje *Panelů na řá
   | **Sloupec** | svislý sloupec vedle čísla — stejné čtení jako budík, míň místa |
   | **Graf (křivka)** | průběh za posledních 1–72 hodin se stupnicemi: hodnoty vlevo na kulatých číslech, časy dole |
   | **Jen číslo** | velké číslo bez rozsahu — pro veličiny, kde žádný rozsah nedává smysl |
+  | **Kamera (snímek)** | obraz z kamery, který se sám obnovuje (výchozí po 10 s) |
 
 - **Entita budíku** — hlavní hodnota. Po výběru se rozsah, popisek i stupně
   doplní podle druhu čidla (teplota, vlhkost, baterie, CO₂, prach…).
@@ -209,6 +222,25 @@ Co okno nabídne, se řídí druhem entity:
 Posuvníky posílají hodnotu **až po puštění prstu** — jinak by každé
 škubnutí poslalo příkaz a světlo by blikalo. Okno se zavírá křížkem nebo
 klepnutím mimo ně.
+
+### Kamera
+
+Sekce se zobrazením **Kamera** ukazuje snímek z entity `camera.*`. Panel
+schválně netahá proud videa — na levném tabletu by ujídal baterku i paměť
+— ale snímek si podle nastavení sám obnovuje (2 až 120 s). Adresu i s
+přístupovým tokenem posílá Home Assistant v atributu entity, takže se nic
+dalšího nenastavuje. Když je displej zhasnutý nebo je stránka schovaná,
+snímky se netahají vůbec.
+
+### Zvonek u dveří
+
+V editoru *Celek → Zvonek u dveří* vybereš **čidlo** (tlačítko zvonku,
+pohyb u dveří) a **kameru**. Když čidlo naskočí, panel se probudí a ukáže
+kameru přes celou obrazovku; po nastavené době (výchozí 30 s) se sám
+vrátí tam, kde byl. Zavřít to jde i dřív křížkem.
+
+Hodí se to i na jiné věci než zvonek — třeba na kameru u garáže spuštěnou
+pohybem.
 
 ### Zvětšení sekce
 
@@ -454,4 +486,5 @@ node tests/hapanel-layout.cjs
 node tests/hapanel-ws.cjs
 node tests/hapanel-history.cjs
 node tests/control-browser.mjs   # ovládání v prohlížeči (potřebuje Playwright)
+node tests/pages-browser.mjs     # stránky, přejíždění, kamera, zvonek
 ```

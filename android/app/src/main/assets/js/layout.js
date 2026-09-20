@@ -18,12 +18,12 @@ var Layout = (function () {
        graph  - krivka za poslednich N hodin
        number - jen velke cislo
      Dlazdice a ukazatele znaji value / bar / graph. */
-  var CARD_VIEWS = ['gauge', 'bar', 'graph', 'number'];
+  var CARD_VIEWS = ['gauge', 'bar', 'graph', 'number', 'camera'];
   var ITEM_VIEWS = ['value', 'bar', 'graph'];
 
   /* Kolik se toho vejde. Vic sekci = mensi okna, o tom rozhoduje uzivatel. */
   var MAX_CARDS = 6, MAX_PANELS = 4, MAX_ITEMS = 8, MAX_METERS = 4, MAX_TILES = 6;
-  var MAX_AMBIENT = 4;
+  var MAX_AMBIENT = 4, MAX_PAGES = 5;
 
   function id(prefix) {
     return prefix + '-' + Math.random().toString(36).slice(2, 8);
@@ -44,9 +44,17 @@ var Layout = (function () {
 
   /** Prazdny panel - to, co uzivatel uvidi pred prvni upravou. */
   function empty() {
-    return { v: VERSION, title: '', subtitle: '', weather: '', cards: [], panels: [],
+    return { v: VERSION, title: '', subtitle: '', weather: '',
+             pages: [newPage('Panel')],
+             ambient: emptyAmbient(), alert: null, doorbell: null,
+             control: { screen: '', brightness: '' } };
+  }
+
+  /** Stranka = jedna obrazovka panelu; prejizdi se mezi nimi prstem. */
+  function newPage(name) {
+    return { id: id('page'), name: name || 'Nová stránka',
              grid: { cols: 0, rows: 0 }, panelGrid: { cols: 0 },
-             ambient: emptyAmbient(), alert: null, control: { screen: '', brightness: '' } };
+             cards: [], panels: [] };
   }
 
   function emptyAmbient() {
@@ -62,6 +70,7 @@ var Layout = (function () {
   function newCard() {
     return {
       id: id('card'), name: 'Nová sekce', code: '', tone: 'cyan', view: 'gauge', hours: 6,
+      refresh: 10,
       dial: { entity: '', caption: '', unit: '', min: 0, max: 100, decimals: null, levels: [] },
       meters: [], tiles: []
     };
@@ -131,6 +140,8 @@ var Layout = (function () {
       tone: tone(r.tone),
       view: CARD_VIEWS.indexOf(r.view) >= 0 ? r.view : 'gauge',
       hours: Math.max(1, Math.min(72, nOr(r.hours, 6))),
+      // jak casto se obnovi snimek z kamery (s)
+      refresh: Math.max(2, Math.min(120, nOr(r.refresh, 10))),
       dial: {
         entity: str(d.entity, ''),
         caption: str(d.caption, ''),
@@ -160,12 +171,32 @@ var Layout = (function () {
     };
   }
 
+  function normPage(raw, fallbackName) {
+    var r = raw || {};
+    return {
+      id: str(r.id, id('page')),
+      name: str(r.name, fallbackName || 'Panel'),
+      // Kolik oken na radek a kolik rad - 0 znamena automaticky.
+      grid: { cols: count((r.grid || {}).cols, 4), rows: count((r.grid || {}).rows, 3) },
+      panelGrid: { cols: count((r.panelGrid || {}).cols, MAX_PANELS) },
+      cards: (Array.isArray(r.cards) ? r.cards : []).slice(0, MAX_CARDS).map(normCard),
+      panels: (Array.isArray(r.panels) ? r.panels : []).slice(0, MAX_PANELS).map(normPanel)
+    };
+  }
+
   /** Jediny vstupni bod: cokoli prijde, odejde platne rozvrzeni. */
   function normalize(raw) {
     var r = raw || {};
     if (typeof r === 'string') {
       try { r = JSON.parse(r); } catch (e) { r = {}; }
     }
+    // Drive mel panel jedinou obrazovku (cards a panels primo v korenu).
+    // Starsi rozvrzeni se z ni stane prvni strankou.
+    var pages = Array.isArray(r.pages) && r.pages.length ? r.pages : [{
+      name: 'Panel', grid: r.grid, panelGrid: r.panelGrid,
+      cards: r.cards, panels: r.panels
+    }];
+
     var out = {
       v: VERSION,
       title: str(r.title, ''),
@@ -173,16 +204,13 @@ var Layout = (function () {
       // Pocasi v zahlavi - u panelu na zdi to je jedna z mala veci,
       // kvuli kterym k nemu clovek opravdu dojde.
       weather: str(r.weather, ''),
-      cards: (Array.isArray(r.cards) ? r.cards : []).slice(0, MAX_CARDS).map(normCard),
-      panels: (Array.isArray(r.panels) ? r.panels : []).slice(0, MAX_PANELS).map(normPanel),
+      pages: pages.slice(0, MAX_PAGES).map(function (p, i) {
+        return normPage(p, i === 0 ? 'Panel' : 'Stránka ' + (i + 1));
+      }),
       ambient: emptyAmbient(),
-      // Kolik oken na radek a kolik rad - 0 znamena automaticky.
-      grid: {
-        cols: count((r.grid || {}).cols, 4),
-        rows: count((r.grid || {}).rows, 3)
-      },
-      panelGrid: { cols: count((r.panelGrid || {}).cols, MAX_PANELS) },
       alert: null,
+      // Zvonek u dveri: kdyz cidlo naskoci, panel ukaze kameru.
+      doorbell: null,
       // Ovladani tabletu z Home Assistantu: prepinac pro displej a
       // cislo pro jas. Panel je jen posloucha, sam je nemeni.
       control: {
@@ -190,6 +218,7 @@ var Layout = (function () {
         brightness: str((r.control || {}).brightness, '')
       }
     };
+
     var a = r.ambient || {};
     // Drive byly v klidovem rezimu presne dve hodnoty (left a right),
     // ted je to seznam - starsi rozvrzeni se prevede.
@@ -214,6 +243,28 @@ var Layout = (function () {
         note: str(r.alert.note, '')
       };
     }
+
+    if (r.doorbell && r.doorbell.camera && r.doorbell.trigger) {
+      out.doorbell = {
+        camera: str(r.doorbell.camera, ''),
+        trigger: str(r.doorbell.trigger, ''),
+        name: str(r.doorbell.name, 'Zvonek'),
+        seconds: Math.max(5, Math.min(300, nOr(r.doorbell.seconds, 30)))
+      };
+    }
+    return out;
+  }
+
+  /** Vsechny sekce a panely napric strankami. */
+  function allCards(l) {
+    var out = [];
+    (l.pages || []).forEach(function (p) { out = out.concat(p.cards || []); });
+    return out;
+  }
+
+  function allPanels(l) {
+    var out = [];
+    (l.pages || []).forEach(function (p) { out = out.concat(p.panels || []); });
     return out;
   }
 
@@ -221,12 +272,12 @@ var Layout = (function () {
   function entities(l) {
     var out = [];
     function add(e) { if (e && out.indexOf(e) < 0) out.push(e); }
-    (l.cards || []).forEach(function (c) {
+    allCards(l).forEach(function (c) {
       add(c.dial.entity);
       (c.meters || []).forEach(function (m) { add(m.entity); });
       (c.tiles || []).forEach(function (t) { add(t.entity); });
     });
-    (l.panels || []).forEach(function (p) {
+    allPanels(l).forEach(function (p) {
       (p.items || []).forEach(function (i) { add(i.entity); });
     });
     if (l.ambient) {
@@ -236,6 +287,7 @@ var Layout = (function () {
     if (l.alert) add(l.alert.entity);
     if (l.control) { add(l.control.screen); add(l.control.brightness); }
     if (l.weather) add(l.weather);
+    if (l.doorbell) { add(l.doorbell.camera); add(l.doorbell.trigger); }
     return out;
   }
 
@@ -252,13 +304,13 @@ var Layout = (function () {
       }
       out.push({ entity: entity, hours: hours });
     }
-    (l.cards || []).forEach(function (c) {
+    allCards(l).forEach(function (c) {
       if (c.view === 'graph') add(c.dial.entity, c.hours);
       (c.meters || []).concat(c.tiles || []).forEach(function (i) {
         if (i.view === 'graph') add(i.entity, i.hours);
       });
     });
-    (l.panels || []).forEach(function (p) {
+    allPanels(l).forEach(function (p) {
       (p.items || []).forEach(function (i) {
         if (i.view === 'graph') add(i.entity, i.hours);
       });
@@ -267,7 +319,7 @@ var Layout = (function () {
   }
 
   function isEmpty(l) {
-    return !l || ((l.cards || []).length === 0 && (l.panels || []).length === 0);
+    return !l || (allCards(l).length === 0 && allPanels(l).length === 0);
   }
 
   /**
@@ -287,6 +339,7 @@ var Layout = (function () {
     }
 
     var l = empty();
+    var page = l.pages[0];
     var temps = pick('temperature', 2);
     var hums = pick('humidity', 2);
     var bats = pick('battery', 4);
@@ -307,7 +360,7 @@ var Layout = (function () {
         m.name = 'Vlhkost'; m.bar = true; m.min = 0; m.max = 100;
         c.meters.push(m);
       }
-      l.cards.push(c);
+      page.cards.push(c);
     });
 
     if (bats.length) {
@@ -321,7 +374,7 @@ var Layout = (function () {
         it.levels = U.suggest(b).levels;
         return it;
       });
-      l.panels.push(p);
+      page.panels.push(p);
     }
 
     var lights = list.filter(function (s) { return U.domain(s.entity_id) === 'light'; }).slice(0, 4);
@@ -334,7 +387,7 @@ var Layout = (function () {
         it.name = U.name(s);
         return it;
       });
-      l.panels.push(lp);
+      page.panels.push(lp);
     }
 
     // I v klidovem rezimu plati "barva a slovo" - stupne tedy jedou s sebou.
@@ -356,7 +409,7 @@ var Layout = (function () {
     if (!l || !l.ambient || !l.ambient.auto) return l;
     if (l.ambient.cells && l.ambient.cells.length) return l;
     var cells = [];
-    (l.cards || []).forEach(function (c) {
+    allCards(l).forEach(function (c) {
       if (!c.dial.entity || cells.length >= MAX_AMBIENT) return;
       var it = normItem({
         entity: c.dial.entity, name: c.name, unit: c.dial.unit,
@@ -372,10 +425,12 @@ var Layout = (function () {
     VERSION: VERSION, TONES: TONES, ambientFallback: ambientFallback,
     empty: empty, newCard: newCard, newPanel: newPanel, newItem: newItem,
     normalize: normalize, entities: entities, graphed: graphed, isEmpty: isEmpty,
-    fromStates: fromStates, id: id,
+    fromStates: fromStates, id: id, newPage: newPage,
+    allCards: allCards, allPanels: allPanels,
     CARD_VIEWS: CARD_VIEWS, ITEM_VIEWS: ITEM_VIEWS,
     MAX_CARDS: MAX_CARDS, MAX_PANELS: MAX_PANELS, MAX_ITEMS: MAX_ITEMS,
-    MAX_METERS: MAX_METERS, MAX_TILES: MAX_TILES, MAX_AMBIENT: MAX_AMBIENT
+    MAX_METERS: MAX_METERS, MAX_TILES: MAX_TILES, MAX_AMBIENT: MAX_AMBIENT,
+    MAX_PAGES: MAX_PAGES
   };
 })();
 

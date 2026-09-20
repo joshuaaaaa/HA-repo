@@ -180,6 +180,7 @@
     }
     document.body.classList.remove('oled-off');
     if (phase === 'idle') {
+      goPage(0);                            // po odchodu zpatky na prvni stranku
       setMode('ambient');
     } else {
       var wasAmbient = document.body.classList.contains('mode-ambient');
@@ -338,6 +339,7 @@
       },
       onStates: function (states) {
         applyControl(states, true);
+        checkDoorbell(states, true);
         setupHistory();
         if (Layout.isEmpty(layout)) {
           // Prvni spusteni: rovnou neco ukazat, at panel nezustane prazdny.
@@ -362,6 +364,9 @@
         if (layout.control && (entityId === layout.control.screen
             || entityId === layout.control.brightness)) {
           applyControl(states, false);
+        }
+        if (layout.doorbell && entityId === layout.doorbell.trigger) {
+          checkDoorbell(states, false);
         }
       }
     });
@@ -420,7 +425,10 @@
 
   /* ================= panel ================= */
 
+  var pageIndex = 0;
+
   function rebuild() {
+    if (view && view.destroy) view.destroy();
     // Klidovy rezim bez vlastniho vyberu prevezme hodnoty ze sekci -
     // doplni se az pri kresleni, aby to editor neukazoval jako
     // nastavene entity.
@@ -429,8 +437,12 @@
       onTap: onTap,
       onDetail: openDetail,
       onZoom: openZoom,
-      onCog: openEditor
+      onCog: openEditor,
+      onPage: goPage,
+      baseUrl: cfg.baseUrl,
+      states: function (id) { return demo ? demoStates[id] : (conn ? conn.states[id] : null); }
     });
+    goPage(pageIndex);
     tick();
     syncBadge();
     if (view.scale) view.scale();
@@ -468,6 +480,90 @@
     });
   }
 
+  /* ---- stranky ----
+     Prejeti prstem prepne stranku. Kratke tahnuti se ignoruje, aby se
+     nepletlo s klepnutim na dlazdici, a svisly pohyb take - ten patri
+     rolovani v editoru. */
+
+  function goPage(i) {
+    if (!view || !view.showPage) return;
+    pageIndex = view.showPage(i);
+  }
+
+  function initSwipe() {
+    var stage = document.getElementById('stage');
+    var sx = 0, sy = 0, active = false, swiped = false;
+
+    // Prejeti konci klepnutim na tom, pres co prst prejel. Bez tohoto
+    // by prejeti pres sekci zaroven otevrelo jeji zvetseni.
+    stage.addEventListener('click', function (e) {
+      if (!swiped) return;
+      swiped = false;
+      e.stopPropagation();
+      e.preventDefault();
+    }, true);
+
+    function begin(x, y) { sx = x; sy = y; active = true; }
+    function finish(x, y) {
+      if (!active) return;
+      active = false;
+      if (!view || view.pages < 2) return;
+      if (Dialog.isOpen() || Editor.isOpen() || document.body.classList.contains('zooming')) return;
+      var dx = x - sx, dy = y - sy;
+      if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      swiped = true;
+      setTimeout(function () { swiped = false; }, 400);
+      goPage(pageIndex + (dx < 0 ? 1 : -1));
+      if (window.Panel && Panel.tap) Panel.tap();
+    }
+
+    stage.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1) { active = false; return; }
+      begin(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    stage.addEventListener('touchend', function (e) {
+      var t = e.changedTouches && e.changedTouches[0];
+      if (t) finish(t.clientX, t.clientY);
+    }, { passive: true });
+    stage.addEventListener('touchcancel', function () { active = false; }, { passive: true });
+    // Mysi jen kvuli zkouseni na pocitaci.
+    stage.addEventListener('mousedown', function (e) { begin(e.clientX, e.clientY); });
+    stage.addEventListener('mouseup', function (e) { finish(e.clientX, e.clientY); });
+  }
+
+  /* ---- zvonek u dveri ----
+     Kdyz cidlo naskoci, panel se probudi a ukaze kameru pres celou
+     obrazovku. Po nastavene dobe se sam vrati. */
+
+  var doorbellOn = false, doorbellTimer = null;
+
+  function checkDoorbell(states, first) {
+    if (!layout.doorbell || !states) return;
+    var st = states[layout.doorbell.trigger];
+    var on = st && (st.state === 'on' || st.state === 'ringing' || st.state === 'pressed');
+    if (on && !doorbellOn) {
+      doorbellOn = true;
+      if (!first) showDoorbell();
+    } else if (!on) {
+      doorbellOn = false;
+    }
+  }
+
+  function showDoorbell() {
+    var db = layout.doorbell;
+    if (!db) return;
+    if (window.Panel && Panel.screen) Panel.screen('on');   // probudit displej
+    window.panelPresence('active');
+    var card = Layout.normalize({ pages: [{ cards: [{
+      name: db.name || 'Zvonek', code: '', tone: 'red', view: 'camera', refresh: 3,
+      dial: { entity: db.camera }
+    }] }] }).pages[0].cards[0];
+    openZoom(card, null);
+    toast(db.name || 'Zvonek u dveří');
+    clearTimeout(doorbellTimer);
+    doorbellTimer = setTimeout(function () { closeZoom(); }, (db.seconds || 30) * 1000);
+  }
+
   /* ---- zvetsena sekce ----
      Okno se "rozbali" z mista, kde sekce stoji: nejdriv se posadi
      presne na ni, pak se pusti prechod na celou plochu. Diky tomu je
@@ -483,19 +579,24 @@
     if (!host || !box) return;
 
     closeZoom(true);
-    var only = Layout.normalize({ cards: [card], panels: [] });
+    var only = Layout.normalize({ pages: [{ cards: [card], panels: [] }] });
     zoomView = Render.build(only, host, {
       onTap: onTap,
       onDetail: openDetail,
       zoomed: true,
-      noAmbient: true
+      noAmbient: true,
+      baseUrl: cfg.baseUrl,
+      states: function (id) { return demo ? demoStates[id] : (conn ? conn.states[id] : null); }
     });
     if (conn && conn.states) zoomView.refresh(conn.states);
     if (demo) zoomView.refresh(demoStates);
     if (history) zoomView.redraw(history);
 
-    var from = sourceEl.getBoundingClientRect();
     var to = box.getBoundingClientRect();
+    // Bez zdrojoveho prvku (napr. zvonek) se okno jen vynori ze stredu.
+    var from = sourceEl ? sourceEl.getBoundingClientRect()
+      : { left: to.left + to.width * 0.1, top: to.top + to.height * 0.1,
+          width: to.width * 0.8, height: to.height * 0.8 };
     var sx = from.width / to.width, sy = from.height / to.height;
     var dx = from.left + from.width / 2 - (to.left + to.width / 2);
     var dy = from.top + from.height / 2 - (to.top + to.height / 2);
@@ -512,7 +613,9 @@
   }
 
   function closeZoom(silent) {
+    clearTimeout(doorbellTimer);
     if (!silent) document.body.classList.remove('zooming');
+    if (zoomView && zoomView.destroy) zoomView.destroy();
     zoomView = null;
     var host = document.getElementById('zoomBody');
     if (host && !silent) setTimeout(function () { if (!document.body.classList.contains('zooming')) host.innerHTML = ''; }, 400);
@@ -548,15 +651,25 @@
     layout = Layout.fromStates(demoStates);
     layout.title = '';
     // Ukazka ma predvest vsechny zpusoby zobrazeni, ne jen budiky.
-    if (layout.cards[1]) {
-      layout.cards[1].view = 'graph';
-      layout.cards[1].hours = 12;
+    var demoPage = layout.pages[0];
+    if (demoPage.cards[1]) {
+      demoPage.cards[1].view = 'graph';
+      demoPage.cards[1].hours = 12;
     }
-    layout.cards.push(Layout.normalize({ cards: [{
+    demoPage.cards.push({
       name: 'ODBĚR', code: 'W', tone: 'violet', view: 'bar',
       dial: { entity: 'sensor.spotreba', caption: 'Příkon', min: 0, max: 3000 },
       tiles: [{ entity: 'sensor.co2', name: 'CO₂', view: 'graph' }]
-    }] }).cards[0]);
+    });
+    // Druha stranka ukaze prejizdeni prstem.
+    layout.pages.push({
+      name: 'Dům', cards: [{
+        name: 'VLHKOST', code: 'H', tone: 'green', view: 'graph', hours: 12,
+        dial: { entity: 'sensor.obyvak_vlhkost', caption: 'Vlhkost' }
+      }],
+      panels: [{ name: 'Dveře a okna', tone: 'cyan',
+                 items: [{ entity: 'binary_sensor.dvere', name: 'Vchod' }] }]
+    });
     layout = Layout.normalize(layout);
     rebuild();
     setMode('live');
@@ -627,6 +740,7 @@
     }, { passive: true });
 
     browserPresence();
+    initSwipe();
     connect();
     setMode(cfg.baseUrl && cfg.token ? 'live' : 'setup');
   }

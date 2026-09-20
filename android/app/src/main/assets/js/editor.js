@@ -14,6 +14,7 @@ var Editor = (function () {
 
   var root, body, tabsBar;
   var draft = null;        // kopie rozvrzeni, na ktere se pracuje
+  var pageIdx = 0;         // ktera stranka se prave upravuje
   var states = {};         // aktualni stavy z Home Assistantu
   var saveCb = null;
   var tab = 'cards';
@@ -22,7 +23,8 @@ var Editor = (function () {
   var LEVEL_NAMES = { good: 'V pořádku', warning: 'Zvýšené', serious: 'Vysoké', critical: 'Kritické', info: 'Informace', idle: 'Neutrální' };
   var TAP_NAMES = { auto: 'Podle druhu entity', none: 'Nic (jen ukazuje)',
                     toggle: 'Přepnout', detail: 'Okno s ovládáním' };
-  var CARD_VIEW_NAMES = { gauge: 'Budík', bar: 'Sloupec', graph: 'Graf (křivka)', number: 'Jen číslo' };
+  var CARD_VIEW_NAMES = { gauge: 'Budík', bar: 'Sloupec', graph: 'Graf (křivka)',
+                          number: 'Jen číslo', camera: 'Kamera (snímek)' };
   var ITEM_VIEW_NAMES = { value: 'Jen hodnota', bar: 'Pruh', graph: 'Křivka' };
   var HOURS = { 1: '1 hodina', 3: '3 hodiny', 6: '6 hodin', 12: '12 hodin',
                 24: '24 hodin', 48: '2 dny', 72: '3 dny' };
@@ -117,6 +119,78 @@ var Editor = (function () {
     return r;
   }
 
+  function curPage() {
+    if (!draft.pages.length) draft.pages.push(Layout.newPage('Panel'));
+    pageIdx = Math.max(0, Math.min(draft.pages.length - 1, pageIdx));
+    return draft.pages[pageIdx];
+  }
+
+  /**
+   * Prepinac stranek panelu. Stoji nad sekcemi i panely, protoze obojí
+   * patri vzdy k jedne strance - at je videt, co se prave upravuje.
+   */
+  function pageBar() {
+    var block = el('div', 'eblock');
+    var h = el('h3');
+    h.appendChild(document.createTextNode('Stránky panelu'));
+    h.appendChild(el('span', 'grow'));
+    if (draft.pages.length < Layout.MAX_PAGES) {
+      h.appendChild(btn('+ Stránka', 'ghost sm', function () {
+        draft.pages.push(Layout.newPage('Stránka ' + (draft.pages.length + 1)));
+        pageIdx = draft.pages.length - 1;
+        render();
+      }));
+    }
+    block.appendChild(h);
+
+    var inner = el('div', 'inner');
+    inner.appendChild(el('div', 'ehint',
+      'Mezi stránkami se na tabletu přejíždí prstem (nebo se klepne na tečky '
+      + 'dole). Každá stránka má vlastní sekce, panely i rozložení.'));
+
+    var tabs = el('div', 'epagebar');
+    draft.pages.forEach(function (pg, i) {
+      var chip = el('div', 'echip' + (i === pageIdx ? ' on' : ''), pg.name || ('Stránka ' + (i + 1)));
+      chip.addEventListener('click', function () { pageIdx = i; render(); });
+      tabs.appendChild(chip);
+    });
+    inner.appendChild(tabs);
+
+    var page = curPage();
+    var tools = [field('Název stránky', page.name, function (v) { page.name = v; })];
+    if (draft.pages.length > 1) {
+      tools.push(wrapBtn(btn('◀', 'ghost sm', function () {
+        if (pageIdx === 0) return;
+        var t = draft.pages[pageIdx - 1];
+        draft.pages[pageIdx - 1] = draft.pages[pageIdx];
+        draft.pages[pageIdx] = t;
+        pageIdx--; render();
+      })));
+      tools.push(wrapBtn(btn('▶', 'ghost sm', function () {
+        if (pageIdx >= draft.pages.length - 1) return;
+        var t = draft.pages[pageIdx + 1];
+        draft.pages[pageIdx + 1] = draft.pages[pageIdx];
+        draft.pages[pageIdx] = t;
+        pageIdx++; render();
+      })));
+      tools.push(wrapBtn(btn('Smazat stránku', 'bad sm', function () {
+        draft.pages.splice(pageIdx, 1);
+        pageIdx = 0; render();
+      })));
+    }
+    inner.appendChild(row.apply(null, tools));
+    block.appendChild(inner);
+    return block;
+  }
+
+  /** Tlacitko zarovnane s poli v radku. */
+  function wrapBtn(b) {
+    var f = el('div', 'efield');
+    f.appendChild(el('label', '', ' '));
+    f.appendChild(b);
+    return f;
+  }
+
   /* ---------- stranky editoru ---------- */
 
   function pageCards() {
@@ -126,6 +200,9 @@ var Editor = (function () {
       + 'sloupcem, křivkou nebo jen velkým číslem. Panel unese šest sekcí — '
       + 'čím víc jich je, tím menší okna, o tom rozhoduješ ty.'));
 
+    page.appendChild(pageBar());
+    var pg = curPage();
+
     var grid = el('div', 'eblock');
     grid.appendChild(el('h3', '', 'Rozložení sekcí'));
     var gi = el('div', 'inner');
@@ -134,24 +211,24 @@ var Editor = (function () {
       + 'o vlastní počet sloupců nebo řad, platí přesně to — pořadí sekcí '
       + 'v seznamu níž určuje, kam se která postaví (šipkami ▲▼ ho změníš).'));
     gi.appendChild(row(
-      select('Sekcí na řádek', String(draft.grid.cols), COLS, function (v) {
-        draft.grid.cols = parseInt(v, 10);
+      select('Sekcí na řádek', String(pg.grid.cols), COLS, function (v) {
+        pg.grid.cols = parseInt(v, 10);
       }),
-      select('Počet řad', String(draft.grid.rows), ROWS, function (v) {
-        draft.grid.rows = parseInt(v, 10);
+      select('Počet řad', String(pg.grid.rows), ROWS, function (v) {
+        pg.grid.rows = parseInt(v, 10);
       })
     ));
     grid.appendChild(gi);
     page.appendChild(grid);
 
-    draft.cards.forEach(function (card, idx) {
+    pg.cards.forEach(function (card, idx) {
       var block = el('div', 'eblock');
       var h = el('h3');
       h.appendChild(document.createTextNode(card.name || 'Sekce'));
       h.appendChild(el('span', 'grow'));
-      h.appendChild(moveBtns(draft.cards, idx));
+      h.appendChild(moveBtns(pg.cards, idx));
       h.appendChild(btn('Smazat', 'bad sm', function () {
-        draft.cards.splice(idx, 1); render();
+        pg.cards.splice(idx, 1); render();
       }));
       block.appendChild(h);
 
@@ -168,11 +245,16 @@ var Editor = (function () {
         viewRow.push(select('Křivka za', String(card.hours), HOURS, function (v) {
           card.hours = parseInt(v, 10);
         }));
+      } else if (card.view === 'camera') {
+        viewRow.push(field('Obnovovat po (s)', card.refresh, function (v) {
+          card.refresh = parseInt(v, 10) || 10;
+        }, 'number'));
       }
       inner.appendChild(row.apply(null, viewRow));
 
       inner.appendChild(el('div', 'ehint', 'Hlavní hodnota na budíku:'));
-      inner.appendChild(row(entityField('Entita budíku', card.dial.entity, function (e) {
+      inner.appendChild(row(entityField(card.view === 'camera' ? 'Entita kamery' : 'Entita budíku',
+        card.dial.entity, function (e) {
         card.dial.entity = e;
         if (e && states[e]) {
           var s = U.suggest(states[e]);
@@ -201,22 +283,28 @@ var Editor = (function () {
         inner.appendChild(el('div', 'ehint',
           'Svislý rozsah křivky se řídí naměřenými hodnotami — krajní hodnoty '
           + 'jsou napsané u okraje grafu.'));
+      } else if (card.view === 'camera') {
+        inner.appendChild(el('div', 'ehint',
+          'Sekce ukazuje snímek z kamery, který se sám obnovuje. Proud videa '
+          + 'panel schválně netahá — na tabletu by jen ujídal baterku a paměť.'));
       }
-      inner.appendChild(levelsEditor(card.dial, states[card.dial.entity]));
+      if (card.view !== 'camera') {
+        inner.appendChild(levelsEditor(card.dial, states[card.dial.entity]));
 
-      inner.appendChild(el('div', 'ehint', 'Ukazatele vedle hlavní hodnoty (nejvýš čtyři):'));
-      inner.appendChild(itemList(card.meters, { bar: true, max: 4 }));
+        inner.appendChild(el('div', 'ehint', 'Ukazatele vedle hlavní hodnoty (nejvýš čtyři):'));
+        inner.appendChild(itemList(card.meters, { bar: true, max: 4 }));
 
-      inner.appendChild(el('div', 'ehint', 'Malé dlaždice pod ukazateli (nejvýš šest):'));
-      inner.appendChild(itemList(card.tiles, { max: 6 }));
+        inner.appendChild(el('div', 'ehint', 'Malé dlaždice pod ukazateli (nejvýš šest):'));
+        inner.appendChild(itemList(card.tiles, { max: 6 }));
+      }
 
       block.appendChild(inner);
       page.appendChild(block);
     });
 
-    if (draft.cards.length < Layout.MAX_CARDS) {
+    if (pg.cards.length < Layout.MAX_CARDS) {
       page.appendChild(btn('+ Přidat sekci', 'ghost', function () {
-        draft.cards.push(Layout.newCard()); render();
+        pg.cards.push(Layout.newCard()); render();
       }));
     }
     return page;
@@ -228,24 +316,27 @@ var Editor = (function () {
       'Panel je řada dlaždic dole; vejdou se čtyři panely vedle sebe. '
       + 'Světla a zásuvky jdou klepnutím rovnou přepnout.'));
 
+    page.appendChild(pageBar());
+    var pg = curPage();
+
     var pgrid = el('div', 'eblock');
     pgrid.appendChild(el('h3', '', 'Rozložení panelů'));
     var pi = el('div', 'inner');
     pi.appendChild(row(
-      select('Panelů na řádek', String(draft.panelGrid.cols), COLS, function (v) {
-        draft.panelGrid.cols = parseInt(v, 10);
+      select('Panelů na řádek', String(pg.panelGrid.cols), COLS, function (v) {
+        pg.panelGrid.cols = parseInt(v, 10);
       })
     ));
     pgrid.appendChild(pi);
     page.appendChild(pgrid);
 
-    draft.panels.forEach(function (p, idx) {
+    pg.panels.forEach(function (p, idx) {
       var block = el('div', 'eblock');
       var h = el('h3');
       h.appendChild(document.createTextNode(p.name || 'Panel'));
       h.appendChild(el('span', 'grow'));
-      h.appendChild(moveBtns(draft.panels, idx));
-      h.appendChild(btn('Smazat', 'bad sm', function () { draft.panels.splice(idx, 1); render(); }));
+      h.appendChild(moveBtns(pg.panels, idx));
+      h.appendChild(btn('Smazat', 'bad sm', function () { pg.panels.splice(idx, 1); render(); }));
       block.appendChild(h);
 
       var inner = el('div', 'inner');
@@ -258,9 +349,9 @@ var Editor = (function () {
       page.appendChild(block);
     });
 
-    if (draft.panels.length < Layout.MAX_PANELS) {
+    if (pg.panels.length < Layout.MAX_PANELS) {
       page.appendChild(btn('+ Přidat panel', 'ghost', function () {
-        draft.panels.push(Layout.newPanel()); render();
+        pg.panels.push(Layout.newPanel()); render();
       }));
     }
     return page;
@@ -347,10 +438,12 @@ var Editor = (function () {
     ti.appendChild(row(
       btn('Sestavit z mých entit', 'ghost', function () {
         draft = Layout.fromStates(states);
+        pageIdx = 0;
         render();
       }),
       btn('Vyprázdnit', 'warn', function () {
         draft = Layout.empty();
+        pageIdx = 0;
         render();
       })
     ));
@@ -372,6 +465,35 @@ var Editor = (function () {
     ));
     tools.appendChild(ti);
     page.appendChild(tools);
+
+    var bell = el('div', 'eblock');
+    bell.appendChild(el('h3', '', 'Zvonek u dveří'));
+    var bi = el('div', 'inner');
+    bi.appendChild(el('div', 'ehint',
+      'Když vybrané čidlo naskočí (zvonek, pohyb u dveří), panel se probudí '
+      + 'a ukáže kameru přes celou obrazovku. Po nastavené době se sám vrátí.'));
+    bi.appendChild(row(entityField('Čidlo zvonku', draft.doorbell ? draft.doorbell.trigger : '',
+      function (e) {
+        if (!e) { draft.doorbell = null; return; }
+        draft.doorbell = draft.doorbell || { camera: '', name: 'Zvonek', seconds: 30 };
+        draft.doorbell.trigger = e;
+      })));
+    if (draft.doorbell) {
+      bi.appendChild(row(entityField('Kamera u dveří', draft.doorbell.camera, function (e) {
+        draft.doorbell.camera = e;
+      })));
+      bi.appendChild(row(
+        field('Nadpis', draft.doorbell.name, function (v) { draft.doorbell.name = v; }),
+        field('Ukázat na (s)', draft.doorbell.seconds, function (v) {
+          draft.doorbell.seconds = parseInt(v, 10) || 30;
+        }, 'number')
+      ));
+      if (!draft.doorbell.camera) {
+        bi.appendChild(el('div', 'ehint', 'Bez vybrané kamery se zvonek neukáže.'));
+      }
+    }
+    bell.appendChild(bi);
+    page.appendChild(bell);
 
     var ctrl = el('div', 'eblock');
     ctrl.appendChild(el('h3', '', 'Ovládání z Home Assistantu'));
@@ -668,6 +790,7 @@ var Editor = (function () {
 
   function open(layout, haStates, onSave) {
     draft = Layout.normalize(JSON.parse(JSON.stringify(layout || {})));
+    pageIdx = 0;
     states = haStates || {};
     saveCb = onSave;
     document.body.classList.add('editing');

@@ -50,7 +50,7 @@ columns: 2                # kolik sekcí na řádek (0/vynechat = automaticky)
 rows: 2                   # kolik řad sekcí (0/vynechat = automaticky)
 panel_columns: 2          # kolik panelů na řádek
 
-sections:                 # hlavní hodnoty, nejvýš šest
+sections:                 # hlavní hodnoty, nejvýš šest (jedna karta = jedna stránka)
   - name: OBÝVÁK
     code: T1              # zkratka v rámečku
     tone: cyan            # cyan | amber | green | violet | red
@@ -111,6 +111,7 @@ platí dál a znamená totéž co `view: bar`.
 | `bar` | svislý sloupec vedle čísla | pruh pod hodnotou |
 | `graph` | křivka za posledních `hours` hodin | malá křivka pod hodnotou |
 | `number` | jen velké číslo | výchozí (`value`) |
+| `camera` | snímek z kamery, sám se obnovuje (`refresh:` v sekundách) | — |
 
 Křivku kreslí karta z historie Home Assistanta (`history/history_during_period`)
 a mezi načteními ji dokresluje z živých změn stavu. Svislý rozsah se řídí
@@ -202,6 +203,7 @@ node tests/hapanel-ws.cjs          # spojení s HA: přihlášení, výpadky, sl
 node tests/hapanel-history.cjs     # historie pro křivky
 node tests/card-browser.mjs        # karta v prohlížeči (potřebuje Playwright)
 node tests/control-browser.mjs     # ovládání, okno s jasem, zoom, stupnice
+node tests/pages-browser.mjs       # stránky, přejíždění prstem, kamera, zvonek
 ```
 
 Panel jde vyzkoušet i bez tabletu: naservíruj
