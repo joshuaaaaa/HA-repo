@@ -25,6 +25,8 @@ var Editor = (function () {
   var ITEM_VIEW_NAMES = { value: 'Jen hodnota', bar: 'Pruh', graph: 'Křivka' };
   var HOURS = { 1: '1 hodina', 3: '3 hodiny', 6: '6 hodin', 12: '12 hodin',
                 24: '24 hodin', 48: '2 dny', 72: '3 dny' };
+  var COLS = { 0: 'Automaticky', 1: '1 na řádek', 2: '2 na řádek', 3: '3 na řádek', 4: '4 na řádek' };
+  var ROWS = { 0: 'Automaticky', 1: '1 řada', 2: '2 řady', 3: '3 řady' };
 
   /* ---------- drobne stavebni dily ---------- */
 
@@ -123,6 +125,24 @@ var Editor = (function () {
       + 'sloupcem, křivkou nebo jen velkým číslem. Panel unese šest sekcí — '
       + 'čím víc jich je, tím menší okna, o tom rozhoduješ ty.'));
 
+    var grid = el('div', 'eblock');
+    grid.appendChild(el('h3', '', 'Rozložení sekcí'));
+    var gi = el('div', 'inner');
+    gi.appendChild(el('div', 'ehint',
+      'Automaticky se sekce poskládají podle svého počtu. Když si řekneš '
+      + 'o vlastní počet sloupců nebo řad, platí přesně to — pořadí sekcí '
+      + 'v seznamu níž určuje, kam se která postaví (šipkami ▲▼ ho změníš).'));
+    gi.appendChild(row(
+      select('Sekcí na řádek', String(draft.grid.cols), COLS, function (v) {
+        draft.grid.cols = parseInt(v, 10);
+      }),
+      select('Počet řad', String(draft.grid.rows), ROWS, function (v) {
+        draft.grid.rows = parseInt(v, 10);
+      })
+    ));
+    grid.appendChild(gi);
+    page.appendChild(grid);
+
     draft.cards.forEach(function (card, idx) {
       var block = el('div', 'eblock');
       var h = el('h3');
@@ -207,6 +227,17 @@ var Editor = (function () {
       'Panel je řada dlaždic dole; vejdou se čtyři panely vedle sebe. '
       + 'Světla a zásuvky jdou klepnutím rovnou přepnout.'));
 
+    var pgrid = el('div', 'eblock');
+    pgrid.appendChild(el('h3', '', 'Rozložení panelů'));
+    var pi = el('div', 'inner');
+    pi.appendChild(row(
+      select('Panelů na řádek', String(draft.panelGrid.cols), COLS, function (v) {
+        draft.panelGrid.cols = parseInt(v, 10);
+      })
+    ));
+    pgrid.appendChild(pi);
+    page.appendChild(pgrid);
+
     draft.panels.forEach(function (p, idx) {
       var block = el('div', 'eblock');
       var h = el('h3');
@@ -244,24 +275,22 @@ var Editor = (function () {
     block.appendChild(el('h3', '', 'Klidová obrazovka'));
     var inner = el('div', 'inner');
 
-    ['left', 'right'].forEach(function (side) {
-      var label = side === 'left' ? 'Levý kruh' : 'Pravý kruh';
-      var item = draft.ambient[side];
-      inner.appendChild(row(entityField(label, item ? item.entity : '', function (e) {
-        if (!e) { draft.ambient[side] = null; return; }
-        var it = Layout.newItem(e);
-        it.name = (U.name(states[e], '') || '').toUpperCase();
-        var s = U.suggest(states[e]);
-        it.levels = s.levels;
-        draft.ambient[side] = it;
-      })));
-      if (item) {
-        inner.appendChild(row(field('Popisek ' + label.toLowerCase(), item.name, function (v) { item.name = v; })));
-      }
-    });
+    inner.appendChild(row(
+      select('Co ukazovat', draft.ambient.auto ? 'auto' : 'vlastni',
+        { auto: 'Hlavní hodnoty ze sekcí', vlastni: 'Vlastní výběr' },
+        function (v) { draft.ambient.auto = (v === 'auto'); render(); })
+    ));
+    if (draft.ambient.auto && !draft.ambient.cells.length) {
+      inner.appendChild(el('div', 'ehint',
+        'Klidový režim převezme hlavní hodnoty prvních čtyř sekcí. '
+        + 'Když si sem přidáš vlastní, platí ty.'));
+    }
+
+    inner.appendChild(el('div', 'ehint', 'Kruhy s hodnotami (nejvýš čtyři):'));
+    inner.appendChild(itemList(draft.ambient.cells, { max: Layout.MAX_AMBIENT, simple: true }));
 
     inner.appendChild(el('div', 'ehint', 'Řádky pod kruhy (nejvýš tři):'));
-    inner.appendChild(itemList(draft.ambient.line, { max: 3 }));
+    inner.appendChild(itemList(draft.ambient.line, { max: 3, simple: true }));
     block.appendChild(inner);
     page.appendChild(block);
 
@@ -400,6 +429,14 @@ var Editor = (function () {
         f.push(select('Klepnutí', item.tap, TAP_NAMES, function (v) { item.tap = v; }));
       }
       grow.appendChild(row.apply(null, f));
+      // Na klidove obrazovce se nic neprepina a pruh tam nepatri.
+      if (opts.simple) {
+        grow.appendChild(levelsEditor(item, states[item.entity]));
+        it.appendChild(grow);
+        it.appendChild(btn('×', 'bad sm', function () { list.splice(idx, 1); render(); }));
+        box.appendChild(it);
+        return;
+      }
 
       var viewSel = [select('Zobrazení', item.view, ITEM_VIEW_NAMES, function (v) {
         item.view = v; render();

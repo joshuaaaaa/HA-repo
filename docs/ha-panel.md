@@ -141,9 +141,16 @@ podle starého nastavení.
 
 ### Sekce
 Hlavní hodnota s ukazateli vedle. Panel unese **šest sekcí** — čím víc jich
-je, tím menší okna; o tom rozhoduješ ty. Sekce se samy poskládají do mřížky
-(1–3 vedle sebe, při více řádcích 2×2 nebo 3×2) a všechno uvnitř se úměrně
-zmenší, takže sekce zůstane čitelná.
+je, tím menší okna; o tom rozhoduješ ty.
+
+**Rozložení sekcí** je nahoře na téže záložce: *Sekcí na řádek* (automaticky
+nebo 1–4) a *Počet řad* (automaticky nebo 1–3). Automaticky se sekce
+poskládají podle svého počtu (1–3 vedle sebe, při více řádcích 2×2 nebo 3×2).
+**Pořadí** sekcí v seznamu určuje, kam se která postaví — mění se šipkami
+▲▼ u názvu sekce. Písmo a budíky uvnitř se vždy přepočítají podle toho, jak
+velké okno doopravdy vyšlo, takže i malá sekce zůstane čitelná.
+
+Totéž má i spodní řada: na záložce *Panely* se nastavuje *Panelů na řádek*.
 
 - **Zobrazení** — jak se hodnota kreslí:
 
@@ -179,7 +186,19 @@ U každé dlaždice se dá zapnout pruh a nastavit, co má dělat **klepnutí**:
 - *Přepnout* — vynutí `toggle`.
 
 ### Klid
-Co je vidět v klidovém režimu: dva velké kruhy a až tři řádky pod nimi.
+Co je vidět v klidovém režimu: **až čtyři velké kruhy** s hodnotami a až tři
+řádky pod nimi.
+
+*Co ukazovat* má dvě polohy:
+
+- **Hlavní hodnoty ze sekcí** (výchozí) — klidový režim sám převezme hlavní
+  hodnotu prvních čtyř sekcí i s jejich stupni. Po přidání sekce se tedy
+  objeví i na uspaném tabletu, aniž bys cokoli nastavoval.
+- **Vlastní výběr** — vybereš si kruhy sám, včetně pořadí (šipky ▲▼).
+
+Dlouhý název entity se uvnitř kruhu zkrátí, podtržítka se nahradí mezerami
+a větší číslo si samo zmenší písmo, takže se popisky ani hodnoty nepřekrývají
+s kruhy vedle.
 Tady se taky nastavuje **pruh upozornění** — když vybraná entita naskočí do
 zvoleného stavu, přes záhlaví přejede pruh (pračka dopere, otevřená vrata,
 poplach). Když je hodnota číslo 0–100, ukáže se jako postup.

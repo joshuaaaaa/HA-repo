@@ -94,11 +94,55 @@ var Render = (function () {
     return { el: svg, draw: draw };
   }
 
+  /**
+   * Nazvy entit z Home Assistanta byvaji "fire_monitored_sensors".
+   * Na klidove obrazovce je z toho pres celou sirku necitelna sipa,
+   * tak se podtrzitka prevedou na mezery a delsi nazev se zkrati.
+   */
+  /**
+   * Cim vic znaku, tim mensi pismo - jinak by se "4727" do kruhu
+   * neveslo a skoncilo by jako "4...".
+   */
+  function fitClass(text) {
+    var n = String(text || '').length;
+    if (n >= 7) return ' l7';
+    if (n >= 6) return ' l6';
+    if (n >= 5) return ' l5';
+    if (n >= 4) return ' l4';
+    return '';
+  }
+
+  function cleanLabel(name) {
+    var t = String(name || '').replace(/_/g, ' ').trim();
+    if (t.length > 22) t = t.slice(0, 21).trim() + '\u2026';
+    return t;
+  }
+
   /** "6 h zpět" -> text pod krivkou */
   function spanLabel(hours) {
     if (hours >= 48) return Math.round(hours / 24) + ' dny zpět';
     if (hours >= 24) return '24 h zpět';
     return hours + ' h zpět';
+  }
+
+  /**
+   * Vlastni mrizka: kolik oken na radek (a volitelne kolik rad).
+   * Bez nastaveni zustava vychozi rozvrzeni z CSS podle poctu oken.
+   */
+  function applyGrid(host, grid, count, defCols) {
+    grid = grid || {};
+    var cols = grid.cols || 0, rows = grid.rows || 0;
+    if (!cols && !rows) return;
+    if (!cols) cols = Math.min(defCols, Math.ceil(count / rows) || 1);
+    host.style.gridTemplateColumns = 'repeat(' + cols + ',1fr)';
+    if (rows) {
+      host.style.gridTemplateRows = 'repeat(' + rows + ',1fr)';
+      host.style.gridAutoRows = '1fr';
+    }
+    // Pet sekci ma v CSS zvlastni rozvrzeni (3 + 2 pres pul sirky);
+    // pri rucnim nastaveni by prekazelo.
+    host.classList.add('fixed');
+    host.dataset.cols = cols;
   }
 
   /* ---------- pomocnici ---------- */
@@ -210,9 +254,11 @@ var Render = (function () {
     }
 
     /* ---------- sekce ----------
-       Trida n1..n6 rika CSS, kolik sekci se deli o plochu - podle toho
-       se srovna mrizka i meritko uvnitr sekci. */
+       Trida n1..n6 je vychozi rozvrzeni podle poctu sekci. Kdyz si
+       uzivatel rekne o vlastni pocet sloupcu nebo rad, prebije ji
+       primo nastavenou mrizkou. */
     var mid = el('div', 'mid n' + Math.min(6, layout.cards.length));
+    applyGrid(mid, layout.grid, layout.cards.length, 3);
     layout.cards.forEach(function (card, idx) {
       mid.appendChild(buildCard(card, idx, bind, ctx, graphs));
     });
@@ -220,48 +266,52 @@ var Render = (function () {
 
     /* ---------- spodni panely ---------- */
     var bot = el('div', 'bot n' + Math.min(4, layout.panels.length));
+    applyGrid(bot, layout.panelGrid, layout.panels.length, 4);
     layout.panels.forEach(function (p, idx) {
       bot.appendChild(buildPanel(p, idx, bind, ctx, graphs));
     });
     if (layout.panels.length) host.appendChild(bot);
 
-    /* ---------- klidova obrazovka ---------- */
-    // V karte pro Lovelace klidovy rezim nema smysl - dashboard nikdy
-    // nezhasina - a tak se ani nestavi.
+    /* ---------- klidova obrazovka ----------
+       Az ctyri hodnoty ve velkych kruzich. Popisek je uvnitr kruhu nad
+       cislem, ne nad nim - dlouhy nazev entity jinak prelezl pres budik
+       vedle. V karte pro Lovelace klidovy rezim nema smysl a nestavi se. */
     var aClock = null, aDate = null;
     if (!ctx.noAmbient) {
+      var cells = (layout.ambient.cells || []).slice(0, 4);
       var amb = el('div', '');
       amb.id = 'ambient';
       aClock = el('div', 'aclock', '--:--');
-      aDate = el('div', 'adate', '—');
+      aDate = el('div', 'adate', '\u2014');
       amb.appendChild(aClock);
       amb.appendChild(aDate);
 
-      var arow = el('div', 'arow');
-      [layout.ambient.left, layout.ambient.right].forEach(function (item) {
-        if (!item) return;
-        var cell = el('div', 'acell');
-        var lab = el('div', 'alabel', item.name || '');
-        var val = el('div', 'aval', '--');
-        var unit = el('div', 'aunit', '');
-        var state = el('div', 'astate', '—');
-        cell.appendChild(lab);
-        cell.appendChild(val);
-        cell.appendChild(unit);
-        cell.appendChild(state);
-        arow.appendChild(cell);
-        bind(item.entity, function (st) {
-          var d = U.display(st, item);
-          if (!lab.textContent) lab.textContent = U.name(st, item.name);
-          val.textContent = d.text;
-          val.classList.toggle('txt', isNaN(d.n));
-          unit.textContent = d.unit;
-          var lv = U.level(d.n, item.levels);
-          state.textContent = d.has ? (item.levels.length ? lv.word : (d.word || '')) : 'Nedostupné';
-          state.style.color = item.levels.length ? lv.color : '#7f9db1';
+      if (cells.length) {
+        var arow = el('div', 'arow c' + cells.length);
+        cells.forEach(function (item) {
+          var cell = el('div', 'acell');
+          var lab = el('div', 'alabel', cleanLabel(item.name));
+          var val = el('div', 'aval', '--');
+          var unit = el('div', 'aunit', '');
+          var state = el('div', 'astate', '\u2014');
+          cell.appendChild(lab);
+          cell.appendChild(val);
+          cell.appendChild(unit);
+          cell.appendChild(state);
+          arow.appendChild(cell);
+          bind(item.entity, function (st) {
+            var d = U.display(st, item);
+            if (!item.name) lab.textContent = cleanLabel(U.name(st, ''));
+            val.textContent = d.text;
+            val.className = 'aval' + (isNaN(d.n) ? ' txt' : fitClass(d.text));
+            unit.textContent = d.unit;
+            var lv = U.level(d.n, item.levels);
+            state.textContent = d.has ? (item.levels.length ? lv.word : (d.word || '')) : 'Nedostupn\u00e9';
+            state.style.color = item.levels.length ? lv.color : '#7f9db1';
+          });
         });
-      });
-      if (arow.children.length) amb.appendChild(arow);
+        amb.appendChild(arow);
+      }
 
       (layout.ambient.line || []).forEach(function (item) {
         var line = el('div', 'aline');
@@ -271,18 +321,17 @@ var Render = (function () {
         amb.appendChild(line);
         bind(item.entity, function (st) {
           var d = U.display(st, item);
-          line.firstChild.nodeValue = (U.name(st, item.name) || '') + ': ';
+          line.firstChild.nodeValue = (cleanLabel(U.name(st, item.name)) || '') + ': ';
           k.textContent = d.text + (d.unit ? ' ' + d.unit : '');
         });
       });
 
       var tag = el('div', 'atag');
       tag.appendChild(el('i'));
-      tag.appendChild(document.createTextNode('Klidový režim'));
+      tag.appendChild(document.createTextNode('Klidov\u00fd re\u017eim'));
       amb.appendChild(tag);
       host.appendChild(amb);
     }
-
 
     /* ---------- prazdny panel ---------- */
     if (!layout.cards.length && !layout.panels.length) {
@@ -312,6 +361,19 @@ var Render = (function () {
       }
     }
 
+    /**
+     * Meritko uvnitr oken se odvodi od toho, jak velke okno doopravdy
+     * je. Diky tomu sedne i pri rucne nastavene mrizce a na kazdem
+     * pomeru stran - CSS trida n1..n6 uz jen urcuje vychozi rozlozeni.
+     */
+    function scale() {
+      fitScale(mid, { cols: columnsOf(mid, layout.cards.length, 3),
+                      rows: rowsOf(mid, layout.cards.length, layout.grid),
+                      refW: 1150, refH: 840, min: 0.34, max: 1.12 });
+      fitScale(bot, { cols: columnsOf(bot, layout.panels.length, 4),
+                      rows: 1, refW: 1150, refH: 0, min: 0.5, max: 1 });
+    }
+
     /** Nova historie jedne entity - prekresli vsechny jeji krivky. */
     function setHistory(entityId, series) {
       for (var i = 0; i < graphs.length; i++) {
@@ -334,6 +396,7 @@ var Render = (function () {
       refreshOne: refreshOne,
       setHistory: setHistory,
       redraw: redraw,
+      scale: scale,
       badge: badge,
       clock: { t: clockT, d: clockD, aTime: aClock, aDate: aDate }
     };
@@ -361,7 +424,10 @@ var Render = (function () {
     });
 
     var accent = ACCENT[card.tone] || ACCENT.cyan;
-    var body = el('div', 'cbody');
+    // Sekce bez ukazatelu a dlazdic ma jen hlavni hodnotu - at stoji
+    // uprostred, ne nalepena vlevo s prazdnem vedle sebe.
+    var solo = !(card.meters && card.meters.length) && !(card.tiles && card.tiles.length);
+    var body = el('div', 'cbody' + (solo ? ' solo' : ''));
     body.appendChild(buildVisual(card, bind, accent, graphs));
 
     var right = el('div', 'cright');
@@ -644,7 +710,39 @@ var Render = (function () {
   }
 
 
-  return { build: build, setSeg: setSeg, dialPaths: dialPaths };
+  /* Kolik sloupcu mrizka opravdu ma - bud rucne nastavenych, nebo tolik,
+     kolik jich CSS poskladalo. */
+  function columnsOf(host, count, max) {
+    if (!host) return 1;
+    if (host.dataset && host.dataset.cols) return parseInt(host.dataset.cols, 10) || 1;
+    try {
+      var tpl = getComputedStyle(host).gridTemplateColumns;
+      var n = tpl ? tpl.split(' ').filter(function (x) { return x && x !== 'none'; }).length : 0;
+      if (n) return n;
+    } catch (e) {}
+    return Math.min(max, count || 1);
+  }
+
+  function rowsOf(host, count, grid) {
+    if (grid && grid.rows) return grid.rows;
+    var cols = columnsOf(host, count, 3);
+    return Math.max(1, Math.ceil((count || 1) / cols));
+  }
+
+  function fitScale(host, o) {
+    if (!host || !host.clientWidth) return;
+    var gap = 16;
+    var w = (host.clientWidth - gap * (o.cols - 1)) / o.cols;
+    var k = w / o.refW;
+    if (o.refH) {
+      var h = (host.clientHeight - gap * (o.rows - 1)) / o.rows;
+      k = Math.min(k, h / o.refH);
+    }
+    if (!isFinite(k) || k <= 0) return;
+    host.style.setProperty('--k', Math.max(o.min, Math.min(o.max, k)).toFixed(3));
+  }
+
+  return { build: build, setSeg: setSeg, dialPaths: dialPaths, fitScale: fitScale };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = Render;

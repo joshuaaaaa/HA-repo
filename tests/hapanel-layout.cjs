@@ -97,11 +97,46 @@ assert.equal(auto.cards.length, 2, 'dve teploty = dve sekce');
 assert.equal(auto.cards[0].dial.entity, 'sensor.t1');
 assert.ok(auto.cards[0].dial.levels.length, 'sekce dostane stupne, aby mela slovo');
 assert.ok(auto.panels.some(p => p.name === 'Baterie') && auto.panels.some(p => p.name === 'Světla'));
-assert.ok(auto.ambient.left && auto.ambient.left.levels.length,
+assert.ok(auto.ambient.cells.length >= 2 && auto.ambient.cells[0].levels.length,
   'i klidovy rezim rika slovo, nejen cislo');
 assert.equal(auto.title, '', 'panel nenese zadnou znacku');
 assert.ok(!Layout.isEmpty(auto));
 assert.ok(Layout.isEmpty(Layout.empty()));
+
+/* --- klidovy rezim --- */
+l = Layout.normalize({ ambient: { left: { entity: 'sensor.a', name: 'A' },
+                                  right: { entity: 'sensor.b' } } });
+assert.deepEqual(l.ambient.cells.map(c => c.entity), ['sensor.a', 'sensor.b'],
+  'starsi zapis se dvema hodnotami se prevede na seznam');
+l = Layout.normalize({ ambient: { cells: new Array(9).fill({ entity: 'sensor.a' }) } });
+assert.equal(l.ambient.cells.length, Layout.MAX_AMBIENT, 'kruhu je nejvys ctyri');
+
+l = Layout.ambientFallback(Layout.normalize({
+  cards: [{ name: 'OBÝVÁK', dial: { entity: 'sensor.t', levels: [{ to: 20, tone: 'good', label: 'Fajn' }] } },
+          { name: 'VENKU', dial: { entity: 'sensor.v' } }]
+}));
+assert.deepEqual(l.ambient.cells.map(c => c.name), ['OBÝVÁK', 'VENKU'],
+  'bez vlastniho vyberu prevezme klidovy rezim hodnoty sekci');
+assert.ok(l.ambient.cells[0].levels.length, 'i se stupni, aby rekl slovo');
+
+l = Layout.ambientFallback(Layout.normalize({
+  cards: [{ dial: { entity: 'sensor.t' } }], ambient: { auto: false }
+}));
+assert.equal(l.ambient.cells.length, 0, 'vypnute prebirani nic nedoplni');
+
+l = Layout.ambientFallback(Layout.normalize({
+  cards: [{ dial: { entity: 'sensor.t' } }], ambient: { cells: [{ entity: 'sensor.x' }] }
+}));
+assert.deepEqual(l.ambient.cells.map(c => c.entity), ['sensor.x'],
+  'vlastni vyber ma prednost pred sekcemi');
+
+/* --- mrizka --- */
+l = Layout.normalize({ grid: { cols: 3, rows: 2 }, panelGrid: { cols: 4 } });
+assert.deepEqual(l.grid, { cols: 3, rows: 2 });
+assert.equal(l.panelGrid.cols, 4);
+l = Layout.normalize({ grid: { cols: 9, rows: -1 }, panelGrid: { cols: 'x' } });
+assert.deepEqual(l.grid, { cols: 0, rows: 0 }, 'nesmyslny pocet = automaticky');
+assert.equal(l.panelGrid.cols, 0);
 
 /* --- prazdny Home Assistant --- */
 const nic = Layout.fromStates({});

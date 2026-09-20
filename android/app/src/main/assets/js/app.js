@@ -83,6 +83,9 @@
     st.style.transform = 'scale(' + s + ')';
     st.style.left = ((vw - size.w * s) / 2 + driftX) + 'px';
     st.style.top = ((vh - size.h * s) / 2 + driftY) + 'px';
+
+    // Okna maji jinou velikost - srovnat pisma uvnitr nich.
+    if (view && view.scale) view.scale();
   }
 
   /** Navrhovy prostor: sirka je dana, druhy rozmer kopiruje displej. */
@@ -414,12 +417,17 @@
   /* ================= panel ================= */
 
   function rebuild() {
-    view = Render.build(layout, document.getElementById('stage'), {
+    // Klidovy rezim bez vlastniho vyberu prevezme hodnoty ze sekci -
+    // doplni se az pri kresleni, aby to editor neukazoval jako
+    // nastavene entity.
+    var shown = Layout.ambientFallback(JSON.parse(JSON.stringify(layout)));
+    view = Render.build(shown, document.getElementById('stage'), {
       onTap: onTap,
       onCog: openEditor
     });
     tick();
     syncBadge();
+    if (view.scale) view.scale();
     if (conn && conn.states) view.refresh(conn.states);
     if (demo) { view.refresh(demoStates); demoHistory(); }
     if (history) { setupHistory(); view.redraw(history); }

@@ -69,6 +69,9 @@ header .grow{flex:1}
 .mid.n5{grid-template-columns:repeat(6,1fr);grid-template-rows:1fr 1fr;--k:.62}
 .mid.n5 > *{grid-column:span 2}
 .mid.n5 > *:nth-child(n+4){grid-column:span 3}
+/* Rucne nastavena mrizka: zadne zvlastni pripady, plati presne to,
+   co si uzivatel rekl. */
+.mid.fixed > *,.mid.fixed > *:nth-child(n+4){grid-column:auto}
 .mid.n6{grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;--k:.62}
 body.is-portrait .mid.n2{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
 body.is-portrait .mid.n3{grid-template-columns:1fr 1fr;--k:.62}
@@ -92,6 +95,7 @@ body.is-portrait .mid.n5 > *,body.is-portrait .mid.n5 > *:nth-child(n+4){grid-co
 .chead .nm{font-size:calc(44px*var(--k));font-weight:800;letter-spacing:calc(5px*var(--k));color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chead .part{margin-left:auto;max-width:52%;font-size:calc(22px*var(--k));letter-spacing:1px;text-transform:uppercase;color:#b6c8d6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cbody{display:flex;align-items:stretch;gap:calc(24px*var(--k));flex:1;min-height:0}
+.cbody.solo{justify-content:center}
 /* Budik si vezme celou vysku sekce a zustane kulaty. Starsi WebView bez
    aspect-ratio dostane pevny rozmer - panel tam vypada jako driv. */
 .gw{position:relative;flex:none;width:calc(520px*var(--k));height:calc(520px*var(--k));color:var(--accent);
@@ -250,20 +254,45 @@ body.mode-ambient header,body.mode-ambient .mid,body.mode-ambient .bot,body.mode
 body.mode-ambient .bg,body.mode-ambient .scan{display:none}
 #ambient .aclock{font:500 190px/1 var(--display);letter-spacing:1px;color:#eef7ff;font-variant-numeric:tabular-nums}
 #ambient .adate{font-size:32px;letter-spacing:6px;color:#7f9db1;margin-top:8px;text-transform:uppercase}
-#ambient .arow{display:flex;gap:220px;margin-top:30px}
-#ambient .acell{--accent:var(--a1);--rgb:54,216,255;position:relative;width:460px;height:460px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:50%;background:radial-gradient(circle,rgba(var(--rgb),.08),#02070bb0 57%,transparent 68%)}
+/* Kruhu muze byt az ctyri - cim vic jich je, tim mensi, a v uzkem
+   prostoru se prelomi do dvou rad. --ak je jejich meritko. */
+#ambient .arow{--ak:1;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+ gap:40px 90px;margin-top:30px;max-width:100%}
+#ambient .arow.c3{--ak:.8}
+#ambient .arow.c4{--ak:.72}
+#ambient .acell{--accent:var(--a1);--rgb:54,216,255;position:relative;flex:none;
+ width:calc(460px*var(--ak));height:calc(460px*var(--ak));display:flex;flex-direction:column;
+ align-items:center;justify-content:center;border-radius:50%;
+ background:radial-gradient(circle,rgba(var(--rgb),.08),#02070bb0 57%,transparent 68%)}
 #ambient .acell:nth-child(2){--accent:var(--a2);--rgb:255,139,62}
+#ambient .acell:nth-child(3){--accent:var(--a3);--rgb:138,245,188}
+#ambient .acell:nth-child(4){--accent:var(--a4);--rgb:196,138,255}
 #ambient .acell::before{content:'';position:absolute;inset:0;border-radius:50%;border:3px solid rgba(var(--rgb),.3);border-top:5px solid var(--accent);border-bottom:5px solid var(--accent);transform:rotate(-35deg);box-shadow:0 0 35px rgba(var(--rgb),.1),inset 0 0 35px rgba(var(--rgb),.08)}
 #ambient .acell::after{content:'';position:absolute;inset:16px;border-radius:50%;border:1px dashed rgba(var(--rgb),.4);pointer-events:none}
-#ambient .alabel{font-size:30px;font-weight:700;letter-spacing:8px;color:var(--accent);margin-bottom:12px;text-transform:uppercase}
-#ambient .aval{font:700 215px/.9 var(--display);letter-spacing:-8px;color:#d6e1e8;font-variant-numeric:tabular-nums}
-#ambient .aval.txt{font-size:80px;letter-spacing:0;text-align:center;padding:0 30px}
-#ambient .aunit{font:31px var(--mono);color:var(--accent);margin-top:8px;min-height:31px}
-#ambient .astate{font-size:23px;letter-spacing:3px;margin-top:16px;text-transform:uppercase}
-#ambient .aline{margin-top:26px;font:26px var(--mono);letter-spacing:2px;color:#7f9db1;white-space:nowrap}
+/* Popisek zustava UVNITR kruhu: dlouhy nazev entity driv pretekl pres
+   sousedni budik. Co se nevejde, konci trema teckami. */
+#ambient .alabel{max-width:66%;font-size:calc(28px*var(--ak));font-weight:700;
+ letter-spacing:calc(5px*var(--ak));color:var(--accent);margin-bottom:calc(10px*var(--ak));
+ text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+#ambient .aval{font:700 calc(200px*var(--ak))/.9 var(--display);letter-spacing:calc(-8px*var(--ak));
+ color:#d6e1e8;font-variant-numeric:tabular-nums;max-width:86%;overflow:hidden;text-overflow:ellipsis}
+/* Delsi cislo = mensi pismo, at se vejde do kruhu cele. */
+#ambient .aval.l4{font-size:calc(150px*var(--ak));letter-spacing:calc(-5px*var(--ak))}
+#ambient .aval.l5{font-size:calc(122px*var(--ak));letter-spacing:calc(-4px*var(--ak))}
+#ambient .aval.l6{font-size:calc(104px*var(--ak));letter-spacing:calc(-3px*var(--ak))}
+#ambient .aval.l7{font-size:calc(88px*var(--ak));letter-spacing:calc(-2px*var(--ak))}
+#ambient .aval.txt{font-size:calc(74px*var(--ak));letter-spacing:0;text-align:center;white-space:nowrap}
+#ambient .aunit{font:calc(31px*var(--ak)) var(--mono);color:var(--accent);margin-top:calc(8px*var(--ak));min-height:calc(31px*var(--ak))}
+#ambient .astate{max-width:82%;font-size:calc(23px*var(--ak));letter-spacing:3px;margin-top:calc(14px*var(--ak));
+ text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ambient .aline{margin-top:26px;font:26px var(--mono);letter-spacing:2px;color:#7f9db1;white-space:nowrap;
+ max-width:92%;overflow:hidden;text-overflow:ellipsis}
 #ambient .aline b{font-weight:500;color:#cfe0ea}
 #ambient .atag{font:22px var(--mono);letter-spacing:4px;color:#8ca9bc;margin-top:30px;display:flex;align-items:center;gap:14px;text-transform:uppercase}
 #ambient .atag i{width:8px;height:8px;background:var(--a1);box-shadow:0 0 12px var(--a1);animation:breath 3s ease-in-out infinite}
+/* Na vysku se kruhy poskladaji po dvou - vedle sebe by nezbylo na cisla. */
+body.is-portrait #ambient .arow{--ak:.72;gap:36px 50px;max-width:96%}
+body.is-portrait #ambient .aclock{font-size:150px}
 
 /* ---------- prekryvy stavu ---------- */
 .overlay{position:fixed;inset:0;z-index:70;display:none;flex-direction:column;align-items:center;justify-content:center;padding:5vmin;text-align:center}

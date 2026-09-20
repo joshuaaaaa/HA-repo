@@ -22,6 +22,10 @@ function cardLayout(config) {
   var out = {
     title: config.title || '',
     subtitle: config.subtitle || '',
+    // columns/rows: kolik sekci na radek a kolik rad. Bez nich se
+    // rozvrzeni poradi samo podle poctu sekci.
+    grid: { cols: config.columns || 0, rows: config.rows || 0 },
+    panelGrid: { cols: config.panel_columns || 0 },
     cards: [], panels: [], ambient: {}, alert: config.alert || null
   };
   (config.sections || config.cards || []).forEach(function (s) {
@@ -199,6 +203,8 @@ class HaPanelCard extends HTMLElement {
     this._stage.style.width = design + 'px';
     var scale = width / design;
     this._stage.style.transform = 'scale(' + scale + ')';
+    // Písma uvnitř oken se řídí tím, jak velká okna doopravdy jsou.
+    if (this._view && this._view.scale) this._view.scale();
     // Výška se měří až po vykreslení - panel je tak vysoký, kolik potřebuje.
     var h = this._stage.scrollHeight || (narrow ? 2000 : 1080);
     this._root.style.height = Math.round(h * scale) + 'px';

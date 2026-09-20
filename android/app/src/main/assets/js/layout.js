@@ -23,6 +23,7 @@ var Layout = (function () {
 
   /* Kolik se toho vejde. Vic sekci = mensi okna, o tom rozhoduje uzivatel. */
   var MAX_CARDS = 6, MAX_PANELS = 4, MAX_ITEMS = 8, MAX_METERS = 4, MAX_TILES = 6;
+  var MAX_AMBIENT = 4;
 
   function id(prefix) {
     return prefix + '-' + Math.random().toString(36).slice(2, 8);
@@ -44,11 +45,18 @@ var Layout = (function () {
   /** Prazdny panel - to, co uzivatel uvidi pred prvni upravou. */
   function empty() {
     return { v: VERSION, title: '', subtitle: '', cards: [], panels: [],
+             grid: { cols: 0, rows: 0 }, panelGrid: { cols: 0 },
              ambient: emptyAmbient(), alert: null, control: { screen: '', brightness: '' } };
   }
 
   function emptyAmbient() {
-    return { left: null, right: null, line: [] };
+    return { cells: [], line: [], auto: true };
+  }
+
+  /** 0 = at si rozvrzeni poradi samo podle poctu oken. */
+  function count(v, max) {
+    var n = Math.round(nOr(v, 0));
+    return n >= 1 && n <= max ? n : 0;
   }
 
   function newCard() {
@@ -164,6 +172,12 @@ var Layout = (function () {
       cards: (Array.isArray(r.cards) ? r.cards : []).slice(0, MAX_CARDS).map(normCard),
       panels: (Array.isArray(r.panels) ? r.panels : []).slice(0, MAX_PANELS).map(normPanel),
       ambient: emptyAmbient(),
+      // Kolik oken na radek a kolik rad - 0 znamena automaticky.
+      grid: {
+        cols: count((r.grid || {}).cols, 4),
+        rows: count((r.grid || {}).rows, 3)
+      },
+      panelGrid: { cols: count((r.panelGrid || {}).cols, MAX_PANELS) },
       alert: null,
       // Ovladani tabletu z Home Assistantu: prepinac pro displej a
       // cislo pro jas. Panel je jen posloucha, sam je nemeni.
@@ -173,8 +187,17 @@ var Layout = (function () {
       }
     };
     var a = r.ambient || {};
-    out.ambient.left = a.left && a.left.entity ? normItem(a.left) : null;
-    out.ambient.right = a.right && a.right.entity ? normItem(a.right) : null;
+    // Drive byly v klidovem rezimu presne dve hodnoty (left a right),
+    // ted je to seznam - starsi rozvrzeni se prevede.
+    var cells = Array.isArray(a.cells) ? a.cells.slice() : [];
+    if (!cells.length) {
+      if (a.left) cells.push(a.left);
+      if (a.right) cells.push(a.right);
+    }
+    out.ambient.cells = cells.slice(0, MAX_AMBIENT)
+      .map(normItem).filter(function (i) { return i.entity; });
+    // Bez vlastniho vyberu prevezme klidovy rezim hodnoty ze sekci.
+    out.ambient.auto = a.auto !== false;
     out.ambient.line = (Array.isArray(a.line) ? a.line : []).slice(0, 3)
       .map(normItem).filter(function (i) { return i.entity; });
 
@@ -203,8 +226,7 @@ var Layout = (function () {
       (p.items || []).forEach(function (i) { add(i.entity); });
     });
     if (l.ambient) {
-      if (l.ambient.left) add(l.ambient.left.entity);
-      if (l.ambient.right) add(l.ambient.right.entity);
+      (l.ambient.cells || []).forEach(function (i) { add(i.entity); });
       (l.ambient.line || []).forEach(function (i) { add(i.entity); });
     }
     if (l.alert) add(l.alert.entity);
@@ -316,19 +338,39 @@ var Layout = (function () {
       return normItem({ entity: st.entity_id, name: U.name(st), levels: sug.levels,
                         decimals: sug.decimals });
     }
-    if (temps[0]) l.ambient.left = ambItem(temps[0]);
-    if (temps[1] || hums[0]) l.ambient.right = ambItem(temps[1] || hums[0]);
+    if (temps[0]) l.ambient.cells.push(ambItem(temps[0]));
+    if (temps[1] || hums[0]) l.ambient.cells.push(ambItem(temps[1] || hums[0]));
     return normalize(l);
   }
 
+  /**
+   * Klidovy rezim bez vlastniho nastaveni ukaze hlavni hodnoty sekci -
+   * jinak by po uspani tabletu zustaly jen hodiny.
+   */
+  function ambientFallback(l) {
+    if (!l || !l.ambient || !l.ambient.auto) return l;
+    if (l.ambient.cells && l.ambient.cells.length) return l;
+    var cells = [];
+    (l.cards || []).forEach(function (c) {
+      if (!c.dial.entity || cells.length >= MAX_AMBIENT) return;
+      var it = normItem({
+        entity: c.dial.entity, name: c.name, unit: c.dial.unit,
+        attribute: c.dial.attribute, decimals: c.dial.decimals, levels: c.dial.levels
+      });
+      cells.push(it);
+    });
+    l.ambient.cells = cells;
+    return l;
+  }
+
   return {
-    VERSION: VERSION, TONES: TONES,
+    VERSION: VERSION, TONES: TONES, ambientFallback: ambientFallback,
     empty: empty, newCard: newCard, newPanel: newPanel, newItem: newItem,
     normalize: normalize, entities: entities, graphed: graphed, isEmpty: isEmpty,
     fromStates: fromStates, id: id,
     CARD_VIEWS: CARD_VIEWS, ITEM_VIEWS: ITEM_VIEWS,
     MAX_CARDS: MAX_CARDS, MAX_PANELS: MAX_PANELS, MAX_ITEMS: MAX_ITEMS,
-    MAX_METERS: MAX_METERS, MAX_TILES: MAX_TILES
+    MAX_METERS: MAX_METERS, MAX_TILES: MAX_TILES, MAX_AMBIENT: MAX_AMBIENT
   };
 })();
 

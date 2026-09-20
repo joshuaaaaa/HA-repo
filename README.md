@@ -45,6 +45,9 @@ type: custom:ha-panel-card
 title: DŮM                # prázdné = jen hodiny a stav
 subtitle: ''
 clock: true               # hodiny v záhlaví
+columns: 2                # kolik sekcí na řádek (0/vynechat = automaticky)
+rows: 2                   # kolik řad sekcí (0/vynechat = automaticky)
+panel_columns: 2          # kolik panelů na řádek
 
 sections:                 # hlavní hodnoty, nejvýš šest
   - name: OBÝVÁK
@@ -89,6 +92,8 @@ type: custom:ha-panel-card
 sections:
   - { name: OBÝVÁK, entity: sensor.obyvak_teplota }
 ```
+
+Pořadí sekcí v seznamu `sections` určuje, kam se která v mřížce postaví.
 
 **Volby sekce:** `name`, `code`, `tone`, `view`, `hours`, `entity`, `attribute`,
 `caption`, `unit`, `decimals`, `min`, `max`, `levels`, `meters`, `tiles`.
