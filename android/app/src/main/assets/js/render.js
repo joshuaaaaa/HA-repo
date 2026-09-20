@@ -379,7 +379,12 @@ var Render = (function () {
        prstem. Vsechny se postavi rovnou, takze prechod je jen posun -
        nic se pri prejeti nedopocitava. */
     var pages = layout.pages || [];
+    // Okenko (.pages) se nehybe a orezava; posouva se pas uvnitr nej
+    // (.pstrip). Kdyby se posouvalo okenko, odjelo by z obrazovky i s
+    // obsahem a druha stranka by zustala neviditelna.
     var pagesEl = el('div', 'pages');
+    var stripEl = el('div', 'pstrip');
+    pagesEl.appendChild(stripEl);
     var pageEls = [];
     pages.forEach(function (page, pi) {
       var pe = el('div', 'page');
@@ -398,7 +403,7 @@ var Render = (function () {
       if (page.panels.length) pe.appendChild(bot);
 
       pageEls.push({ el: pe, mid: mid, bot: bot, page: page });
-      pagesEl.appendChild(pe);
+      stripEl.appendChild(pe);
     });
     host.appendChild(pagesEl);
 
@@ -424,7 +429,7 @@ var Render = (function () {
       var n = pageEls.length;
       if (!n) return 0;
       var i = Math.max(0, Math.min(n - 1, index));
-      pagesEl.style.transform = 'translateX(' + (-i * 100) + '%)';
+      stripEl.style.transform = 'translateX(' + (-i * 100) + '%)';
       for (var j = 0; j < pageEls.length; j++) {
         pageEls[j].el.classList.toggle('on', j === i);
       }

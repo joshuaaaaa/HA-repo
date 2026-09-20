@@ -149,6 +149,9 @@ ukazují, kde jsi, a dají se i zmáčknout. Každá stránka má vlastní sekce
 panely i rozložení, takže jedna může být domov, druhá kamery a třetí
 energie.
 
+Každá stránka se kreslí celá dopředu a přejetí je jen posun pásu uvnitř
+okénka, takže přechod jede plynule i na levném tabletu.
+
 Stránky se přidávají a přejmenovávají nahoře na záložkách *Sekce* i
 *Panely* (blok **Stránky panelu**); šipkami ◀ ▶ se mění jejich pořadí.
 Po odchodu od tabletu (klidový režim) se panel sám vrátí na první
@@ -270,10 +273,16 @@ z místa, kde sekce stojí, a při zavření se tam zase vrátí, takže je
 pořád vidět, co se odkud zvětšilo. Ve velkém běží dál živě (včetně
 křivky) a zavírá se křížkem nebo klepnutím vedle.
 
+Okno schválně nezabírá celý displej — kolem je vidět panel, takže je
+poznat, že jde o náhled, ne o jinou obrazovku.
+
 Když je hlavní hodnota sekce **něco, co jde ovládat** (světlo, zásuvka,
-roleta, termostat…), objeví se pod zvětšenou sekcí rovnou **ovládání** —
-stejné, jaké má okno s podrobnostmi: zapnout, vypnout, jas, barva.
-U čidla zůstane pruh prázdný, protože není co přepínat.
+roleta, termostat…), je rovnou u ní i **ovládání** — stejné, jaké má okno
+s podrobnostmi: zapnout, vypnout, jas, barva. Na ležícím tabletu stojí
+ve sloupci **vedle** sekce (sekce tak zůstane velká), na stojícím pod ní.
+Na nízkém displeji se prvky samy zmenší, aby se vešly všechny najednou —
+ani u světla s jasem, teplotou bílé a dvanácti barvami se neschovají pod
+okraj. U čidla zůstane místo prázdné, protože není co přepínat.
 
 Ve zvětšené sekci schválně není záhlaví s hodinami a odznakem spojení —
 to je vidět na panelu pod ní.

@@ -32,7 +32,7 @@ await page.routeWebSocket(/\/api\/websocket/, ws=>{
   globalThis.calls=[];
   const states=[
     {entity_id:'light.sklep',state:'off',attributes:{friendly_name:'Žárovka sklep Zigbee',
-      supported_color_modes:['color_temp'],min_color_temp_kelvin:2200,max_color_temp_kelvin:6500},last_changed:now},
+      supported_color_modes:['color_temp','hs'],min_color_temp_kelvin:2200,max_color_temp_kelvin:6500},last_changed:now},
     {entity_id:'sensor.t',state:'22.4',attributes:{friendly_name:'Teplota',unit_of_measurement:'°C',device_class:'temperature'},last_changed:now}
   ];
   ws.onMessage(raw=>{const m=JSON.parse(raw);
@@ -82,7 +82,7 @@ const ctrl = await page.evaluate(()=>({
 console.log('ovladani ve zvetsene sekci:', ctrl);
 assert.ok(ctrl.tlacitka.includes('Zapnout'),'svetlo jde zapnout primo ze zvetsene sekce');
 assert.ok(ctrl.posuvniky.includes('Jas'),'a ztlumit');
-assert.ok(ctrl.barvy===0||ctrl.barvy===12,'barvy podle toho, co svetlo umi');
+assert.equal(ctrl.barvy,12,'a vybrat barvu');
 
 await page.locator('#zoomCtrl .dbtn', {hasText:'Zapnout'}).first().click();
 await page.waitForTimeout(300);
@@ -108,6 +108,44 @@ assert.equal(await page.evaluate(()=>document.getElementById('zoomCtrl').childNo
   'u cidla zustane pruh ovladani prazdny');
 await page.click('#zoomClose');
 await page.waitForTimeout(600);
+
+/* --- na malem tabletu se ovladani vejde cele, okno nezabira cely displej --- */
+await page.setViewportSize({width:800,height:500});
+await page.waitForTimeout(400);
+await page.locator('.card').first().click();
+await page.waitForTimeout(800);
+const fit = await page.evaluate(()=>{
+  const w=document.querySelector('#zoom .zwin').getBoundingClientRect();
+  const s=document.getElementById('zoomCtrl');
+  const r=s.getBoundingClientRect();
+  const prvky=[...s.children].map(c=>c.getBoundingClientRect());
+  return {okno:{w:Math.round(w.width),h:Math.round(w.height)},
+          displej:{w:window.innerWidth,h:window.innerHeight},
+          preteka:s.scrollHeight - s.clientHeight,
+          posledni:Math.round(prvky[prvky.length-1].bottom),
+          spodek:Math.round(r.bottom)};
+});
+// Nic z ovladani nesmi lezet pod krizkem ani prerust okraj okna.
+const kolize = await page.evaluate(()=>{
+  const w=document.querySelector('#zoom .zwin').getBoundingClientRect();
+  const x=document.querySelector('#zoom .zclose').getBoundingClientRect();
+  const prvky=[...document.querySelectorAll('#zoomCtrl .dbtn, #zoomCtrl input, #zoomCtrl .dsw i')];
+  const kryje=r=>r.right>x.left+2&&r.left<x.right-2&&r.bottom>x.top+2&&r.top<x.bottom-2;
+  return {podKrizkem:prvky.filter(e=>kryje(e.getBoundingClientRect())).map(e=>e.textContent||e.type),
+          pres:prvky.filter(e=>e.getBoundingClientRect().right>w.right+1).length};
+});
+console.log('maly tablet:', fit, '| kolize:', kolize);
+assert.equal(kolize.podKrizkem.length,0,'zadny ovladaci prvek nelezi pod krizkem');
+assert.equal(kolize.pres,0,'a nic neprerusta okraj okna');
+assert.ok(fit.okno.w < fit.displej.w && fit.okno.h < fit.displej.h,
+  'okno nezabira uplne cely displej - kolem je videt panel');
+assert.ok(fit.preteka <= 2, 'vsechno ovladani se vejde bez rolovani');
+assert.ok(fit.posledni <= fit.displej.h, 'a nic nelezi pod spodnim okrajem displeje');
+if (process.env.SCRATCH) await page.screenshot({path:process.env.SCRATCH+'/zoom-maly.png'});
+await page.click('#zoomClose');
+await page.waitForTimeout(600);
+await page.setViewportSize({width:1600,height:1000});
+await page.waitForTimeout(400);
 
 /* --- pismo v editoru: na uzkem displeji mensi nez na sirokem --- */
 async function editorFont(){

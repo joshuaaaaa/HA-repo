@@ -70,7 +70,7 @@ await page.waitForTimeout(3300);
 const p0=await page.evaluate(()=>({stranek:document.querySelectorAll('.page').length,
   tecek:document.querySelectorAll('.pdots i').length,
   aktivni:[...document.querySelectorAll('.pdots i')].findIndex(d=>d.classList.contains('on')),
-  posun:document.querySelector('.pages').style.transform}));
+  posun:document.querySelector('.pstrip').style.transform}));
 console.log('stranky:', p0.stranek, '| tecky:', p0.tecek);
 assert.equal(p0.stranek,3); assert.equal(p0.tecek,3); assert.equal(p0.aktivni,0);
 
@@ -82,7 +82,7 @@ await page.mouse.move(st.x+st.width*0.2, st.y+st.height*0.5, {steps:10});
 await page.mouse.up();
 await page.waitForTimeout(600);
 const p1=await page.evaluate(()=>({aktivni:[...document.querySelectorAll('.pdots i')].findIndex(d=>d.classList.contains('on')),
-  posun:document.querySelector('.pages').style.transform,
+  posun:document.querySelector('.pstrip').style.transform,
   kamera:!!document.querySelector('.camw .cam')?.src,
   src:(document.querySelector('.camw .cam')?.src||'').slice(0,60)}));
 assert.ok(await page.evaluate(()=>!document.body.classList.contains('zooming')),
@@ -90,6 +90,22 @@ assert.ok(await page.evaluate(()=>!document.body.classList.contains('zooming')),
 console.log('po prejeti prstem: stranka', p1.aktivni + 1, '| kamera nactena:', p1.kamera);
 assert.equal(p1.aktivni,1,'prejeti prepne na dalsi stranku');
 assert.ok(p1.kamera,'kamera ma nacteny snimek');
+
+// Druha stranka musi byt doopravdy videt - posouva se pas uvnitr okenka,
+// ne okenko samo, jinak by stranka odjela i s obsahem mimo obrazovku.
+const vidim=await page.evaluate(()=>{
+  const karta=document.querySelectorAll('.page')[1].querySelector('.card');
+  const r=karta.getBoundingClientRect();
+  const x=Math.round(r.left+r.width/2), y=Math.round(r.top+r.height/2);
+  // Pouhy rozmer nestaci: orezany obsah ma porad svou velikost i misto.
+  // Co je opravdu videt, rekne az to, co je pod prstem uprostred karty.
+  const pod=document.elementFromPoint(x,y);
+  return {sirka:Math.round(r.width),vyska:Math.round(r.height),
+          videt:!!pod&&karta.contains(pod),pod:pod?pod.className||pod.tagName:'nic'};
+});
+console.log('karta na druhe strance:', vidim);
+assert.ok(vidim.sirka>200 && vidim.vyska>200,'karta na druhe strance ma velikost');
+assert.ok(vidim.videt,'a je doopravdy videt, ne orezana mimo okenko stranek');
 if (process.env.SCRATCH) await page.screenshot({path:process.env.SCRATCH+'/pages-kamera.png'});
 
 // obnovovani snimku
