@@ -1,0 +1,77 @@
+blueprint:
+  name: HA Panel – noční režim panelu
+  description: >-
+    Večer panel zhasne, ráno se zase rozsvítí a nastaví si denní jas.
+
+
+    Potřebuje dva pomocníky (přepínač displeje a číslo pro jas), které
+    vytvoří balíček homeassistant/packages/ha_panel.yaml z tohohle
+    repozitáře — a které si v aplikaci přiřadíš v editoru panelu
+    (Celek → Ovládání z Home Assistantu).
+  domain: automation
+  source_url: https://github.com/joshuaaaaa/HA-repo/blob/main/blueprints/automation/ha_panel/panel-nocni-rezim.yaml
+  input:
+    prepinac:
+      name: Přepínač displeje
+      description: input_boolean, který panel poslouchá.
+      selector:
+        entity:
+          filter:
+            - domain: input_boolean
+    jas:
+      name: Číslo pro jas
+      description: input_number 1–100, kterým se řídí jas panelu.
+      selector:
+        entity:
+          filter:
+            - domain: input_number
+    vecer:
+      name: Večer zhasnout v
+      default: "23:00:00"
+      selector:
+        time:
+    rano:
+      name: Ráno rozsvítit v
+      default: "06:30:00"
+      selector:
+        time:
+    jas_den:
+      name: Denní jas (%)
+      default: 80
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+
+mode: single
+
+trigger:
+  - platform: time
+    at: !input vecer
+    id: vecer
+  - platform: time
+    at: !input rano
+    id: rano
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: vecer
+        sequence:
+          - service: input_boolean.turn_off
+            target:
+              entity_id: !input prepinac
+      - conditions:
+          - condition: trigger
+            id: rano
+        sequence:
+          - service: input_boolean.turn_on
+            target:
+              entity_id: !input prepinac
+          - service: input_number.set_value
+            target:
+              entity_id: !input jas
+            data:
+              value: !input jas_den

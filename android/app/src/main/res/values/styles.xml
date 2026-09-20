@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Panel: cerne pozadi, zadne pruhy. Cerna je zamerna - na OLED
+       displeji zhasnute pixely nesviti a nic se nevypaluje. -->
+  <style name="PanelTheme" parent="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+    <item name="android:windowBackground">@android:color/black</item>
+    <item name="android:windowAnimationStyle">@null</item>
+  </style>
+
+  <!-- Nastaveni uz je obycejna obrazovka: tmava, ale citelna a rolovatelna. -->
+  <style name="SetupTheme" parent="@android:style/Theme.Material">
+    <item name="android:windowBackground">#FF05090D</item>
+    <item name="android:colorAccent">#FF36D8FF</item>
+    <item name="android:textColorPrimary">#FFF2F8FF</item>
+    <item name="android:textColorSecondary">#FF90A5B6</item>
+  </style>
+</resources>

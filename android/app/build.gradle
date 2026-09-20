@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'cz.promptlab.hapanel'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "cz.promptlab.hapanel"
+        minSdk 24
+        targetSdk 34
+        versionCode 2
+        versionName "2.0"
+    }
+
+    buildTypes {
+        release {
+            // Zadne knihovny = neni co zmensovat; necteny kod by shrinker
+            // jen prohledal a nic neusetril.
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            applicationIdSuffix '.debug'
+        }
+    }
+
+    buildFeatures {
+        // BuildConfig.VERSION_NAME se ukazuje v nastaveni.
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // Stranka panelu je v assets/ - kopiruje se do APK tak, jak je.
+    packagingOptions {
+        jniLibs { useLegacyPackaging false }
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+dependencies {
+    // zamerne prazdne
+}

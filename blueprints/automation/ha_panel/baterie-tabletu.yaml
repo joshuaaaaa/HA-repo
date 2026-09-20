@@ -1,0 +1,50 @@
+blueprint:
+  name: HA Panel – hlídání baterie tabletu
+  description: >-
+    Tablet hlásí nabití baterie jako čidlo (sensor.<název>_baterie).
+    Když klesne pod zvolenou mez a tablet se zrovna nenabíjí, spustí se
+    akce, kterou si vybereš — třeba upozornění do telefonu nebo zapnutí
+    zásuvky s nabíječkou.
+  domain: automation
+  source_url: https://github.com/joshuaaaaa/HA-repo/blob/main/blueprints/automation/ha_panel/baterie-tabletu.yaml
+  input:
+    baterie:
+      name: Čidlo baterie tabletu
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              device_class: battery
+    prah:
+      name: Upozornit pod (%)
+      default: 25
+      selector:
+        number:
+          min: 5
+          max: 80
+          unit_of_measurement: "%"
+    akce:
+      name: Co udělat
+      description: Např. poslat upozornění, zapnout zásuvku s nabíječkou nebo obojí.
+      selector:
+        action:
+
+mode: single
+
+variables:
+  baterie: !input baterie
+
+trigger:
+  - platform: numeric_state
+    entity_id: !input baterie
+    below: !input prah
+    for:
+      minutes: 10
+
+condition:
+  # Při nabíjení nemá smysl otravovat - baterie stoupá.
+  - condition: template
+    value_template: >-
+      {{ not state_attr(baterie, 'charging') }}
+
+action: !input akce

@@ -1,0 +1,9 @@
+// Zadne knihovny navic - aplikace stoji jen na tom, co je v systemu.
+// Diky tomu se sestavi i na pomalem pripojeni a APK ma par desitek kB.
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}
+
+tasks.register('clean', Delete) {
+    delete rootProject.layout.buildDirectory
+}

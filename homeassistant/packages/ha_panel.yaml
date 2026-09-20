@@ -1,0 +1,33 @@
+# ------------------------------------------------------------------
+#  HA Panel - pomocníci, kterými Home Assistant ovládá tablet.
+#
+#  Kam s tím:
+#    1) do configuration.yaml přidej (pokud tam ještě není):
+#
+#         homeassistant:
+#           packages: !include_dir_named packages
+#
+#    2) tenhle soubor ulož jako  config/packages/ha_panel.yaml
+#    3) Nastavení → Systém → Ovládání → Restartovat Home Assistant
+#
+#  Kdo nechce sahat do YAMLu, může stejné dva pomocníky naklikat v
+#  Nastavení → Zařízení a služby → Pomocníci (přepínač a číslo).
+#
+#  V aplikaci HA Panel je pak přiřaď v editoru:
+#    ozubené kolo → Celek → Ovládání z Home Assistantu
+# ------------------------------------------------------------------
+
+input_boolean:
+  panel_displej:
+    name: Panel – displej
+    icon: mdi:tablet-dashboard
+
+input_number:
+  panel_jas:
+    name: Panel – jas
+    icon: mdi:brightness-6
+    min: 1
+    max: 100
+    step: 5
+    unit_of_measurement: "%"
+    mode: slider

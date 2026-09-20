@@ -1,0 +1,17 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="72dp" android:height="72dp"
+    android:viewportWidth="72" android:viewportHeight="72">
+  <!-- otevreny budik: oblouk s ryskou, stejny motiv jako na panelu -->
+  <path
+      android:pathData="M12,52 A30,30 0 1,1 60,52"
+      android:strokeColor="#36D8FF" android:strokeWidth="6"
+      android:strokeLineCap="round" />
+  <path
+      android:pathData="M36,20 L36,40"
+      android:strokeColor="#FF8B3E" android:strokeWidth="6"
+      android:strokeLineCap="round" />
+  <path
+      android:pathData="M22,58 L50,58"
+      android:strokeColor="#8AF5BC" android:strokeWidth="5"
+      android:strokeLineCap="round" />
+</vector>

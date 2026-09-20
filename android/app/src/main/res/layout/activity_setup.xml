@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+  <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      android:padding="20dp">
+
+    <!-- ===== Zdroj ===== -->
+    <TextView style="@style/Head" android:text="@string/sec_source" />
+    <RadioGroup android:id="@+id/source"
+        android:layout_width="match_parent" android:layout_height="wrap_content">
+      <RadioButton android:id="@+id/srcHa" android:layout_width="match_parent"
+          android:layout_height="wrap_content" android:text="@string/lbl_source_ha" />
+      <RadioButton android:id="@+id/srcUrl" android:layout_width="match_parent"
+          android:layout_height="wrap_content" android:text="@string/lbl_source_url" />
+    </RadioGroup>
+    <TextView style="@style/Lbl" android:text="@string/lbl_custom_url" />
+    <EditText android:id="@+id/customUrl" style="@style/Inp"
+        android:inputType="textUri" android:hint="http://192.168.1.10:8099/"
+        android:autofillHints="" />
+
+    <!-- ===== Pripojeni ===== -->
+    <TextView style="@style/Head" android:text="@string/sec_connection" />
+    <TextView style="@style/Lbl" android:text="@string/lbl_url" />
+    <EditText android:id="@+id/url" style="@style/Inp"
+        android:inputType="textUri" android:hint="@string/hint_url"
+        android:autofillHints="" />
+    <TextView style="@style/Lbl" android:text="@string/lbl_token" />
+    <EditText android:id="@+id/token" style="@style/Inp"
+        android:inputType="textMultiLine" android:maxLines="4"
+        android:hint="@string/hint_token" android:autofillHints="" />
+    <TextView style="@style/Note" android:text="@string/help_token" />
+    <Button android:id="@+id/test" style="@style/Btn" android:text="@string/btn_test" />
+    <TextView android:id="@+id/testResult" style="@style/Note" android:text="" />
+
+    <!-- ===== Displej ===== -->
+    <TextView style="@style/Head" android:text="@string/sec_screen" />
+    <TextView style="@style/Lbl" android:text="@string/lbl_idle" />
+    <EditText android:id="@+id/idle" style="@style/Inp" android:inputType="number" android:autofillHints="" />
+    <TextView style="@style/Lbl" android:text="@string/lbl_dim" />
+    <EditText android:id="@+id/dim" style="@style/Inp" android:inputType="number" android:autofillHints="" />
+    <TextView style="@style/Lbl" android:text="@string/lbl_bright_day" />
+    <EditText android:id="@+id/brightDay" style="@style/Inp" android:inputType="number" android:autofillHints="" />
+    <TextView style="@style/Lbl" android:text="@string/lbl_bright_night" />
+    <EditText android:id="@+id/brightNight" style="@style/Inp" android:inputType="number" android:autofillHints="" />
+
+    <Switch android:id="@+id/motion" style="@style/Sw" android:text="@string/sw_motion" />
+    <Switch android:id="@+id/motionDimOnly" style="@style/Sw" android:text="@string/sw_motion_dim_only" />
+    <TextView style="@style/Lbl" android:text="@string/lbl_sensitivity" />
+    <SeekBar android:id="@+id/sensitivity" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:max="9" android:progress="4"
+        android:layout_marginBottom="8dp" />
+    <Button android:id="@+id/camPerm" style="@style/Btn" android:text="@string/btn_camera" />
+    <Switch android:id="@+id/proximity" style="@style/Sw" android:text="@string/sw_proximity" />
+    <Switch android:id="@+id/autoBright" style="@style/Sw" android:text="@string/sw_autobright" />
+    <Switch android:id="@+id/trueSleep" style="@style/Sw" android:text="@string/sw_truesleep" />
+    <TextView style="@style/Note" android:text="@string/help_truesleep" />
+    <Button android:id="@+id/admin" style="@style/Btn" android:text="@string/btn_admin" />
+
+    <!-- ===== Kiosek ===== -->
+    <TextView style="@style/Head" android:text="@string/sec_kiosk" />
+    <Switch android:id="@+id/boot" style="@style/Sw" android:text="@string/sw_boot" />
+    <TextView style="@style/Lbl" android:text="@string/lbl_orientation" />
+    <Spinner android:id="@+id/orientation" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginBottom="12dp" />
+    <TextView style="@style/Lbl" android:text="@string/lbl_pin" />
+    <EditText android:id="@+id/pin" style="@style/Inp" android:inputType="number"
+        android:maxLength="8" android:autofillHints="" />
+    <Switch android:id="@+id/report" style="@style/Sw" android:text="@string/sw_report" />
+    <TextView style="@style/Note" android:text="@string/help_report" />
+    <TextView style="@style/Lbl" android:text="@string/lbl_device" />
+    <EditText android:id="@+id/deviceName" style="@style/Inp" android:inputType="text" android:autofillHints="" />
+
+    <Button android:id="@+id/save" style="@style/Btn" android:text="@string/btn_save"
+        android:layout_marginTop="20dp" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:layout_marginTop="4dp">
+      <Button android:id="@+id/export" style="@style/Btn"
+          android:layout_width="0dp" android:layout_weight="1" android:text="@string/btn_export" />
+      <Button android:id="@+id/importBtn" style="@style/Btn"
+          android:layout_width="0dp" android:layout_weight="1" android:text="@string/btn_import" />
+    </LinearLayout>
+
+    <TextView android:id="@+id/version" style="@style/Note" android:text=""
+        android:layout_marginTop="16dp" />
+  </LinearLayout>
+</ScrollView>

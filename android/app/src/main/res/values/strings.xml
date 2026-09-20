@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">HA Panel</string>
+  <string name="setup_title">Nastavení panelu</string>
+
+  <string name="sec_connection">Připojení k Home Assistantu</string>
+  <string name="lbl_url">Adresa Home Assistantu</string>
+  <string name="hint_url">http://homeassistant.local:8123</string>
+  <string name="lbl_token">Dlouhodobý přístupový token</string>
+  <string name="hint_token">vlož token z profilu v Home Assistantu</string>
+  <string name="help_token">Token vytvoříš v Home Assistantu: klikni na své jméno vlevo dole → záložka Zabezpečení → dole „Dlouhodobé přístupové tokeny“ → Vytvořit token. Vypsaný řetězec jde zkopírovat jen jednou.</string>
+  <string name="btn_test">Vyzkoušet spojení</string>
+
+  <string name="sec_screen">Displej a probouzení</string>
+  <string name="lbl_idle">Klidový režim po (s)</string>
+  <string name="lbl_dim">Zhasnout po (s)</string>
+  <string name="lbl_bright_day">Jas ve dne (%)</string>
+  <string name="lbl_bright_night">Jas v noci (%)</string>
+  <string name="sw_motion">Budit kamerou (detekce pohybu)</string>
+  <string name="sw_motion_dim_only">Kameru zapínat jen při zhasnutém displeji</string>
+  <string name="lbl_sensitivity">Citlivost pohybu (1–10)</string>
+  <string name="sw_proximity">Budit přiblížením ruky (čidlo přiblížení)</string>
+  <string name="sw_autobright">Jas podle světelného čidla</string>
+  <string name="sw_truesleep">Opravdu zhasnout displej (vyžaduje správce zařízení)</string>
+  <string name="help_truesleep">Bez tohoto panel jen ztmavne do černé — na OLED je to k nerozeznání a systém displej sám dokončí. Se správcem zařízení displej zhasne hned, ale kamera pak hlídat nemůže (Android zabere kameru aplikaci mimo popředí). Probudí ho mávnutí rukou nad čidlem přiblížení, tlačítko zapnutí nebo příkaz z Home Assistanta.</string>
+  <string name="btn_admin">Povolit správce zařízení</string>
+  <string name="btn_camera">Povolit přístup ke kameře</string>
+
+  <string name="sec_kiosk">Kiosek</string>
+  <string name="sw_boot">Spustit po startu systému</string>
+  <string name="lbl_orientation">Otočení obrazovky</string>
+  <string name="lbl_pin">PIN k nastavení (prázdné = bez zámku)</string>
+  <string name="sw_report">Hlásit stav tabletu do Home Assistantu</string>
+  <string name="help_report">Tablet vytvoří v Home Assistantu čidla baterie, osvětlení, pohybu a stavu displeje. Jdou pak použít v automatizacích.</string>
+  <string name="lbl_device">Název zařízení (v Home Assistantu)</string>
+
+  <string name="sec_source">Zdroj panelu</string>
+  <string name="lbl_source_ha">Home Assistant (vestavěný panel)</string>
+  <string name="lbl_source_url">Vlastní adresa (např. telemetrie z počítače)</string>
+  <string name="lbl_custom_url">Adresa stránky</string>
+
+  <string name="btn_save">Uložit a spustit panel</string>
+  <string name="btn_export">Zkopírovat nastavení</string>
+  <string name="btn_import">Vložit nastavení ze schránky</string>
+  <string name="msg_saved">Uloženo</string>
+  <string name="msg_pin">Zadej PIN</string>
+  <string name="msg_pin_bad">Špatný PIN</string>
+</resources>

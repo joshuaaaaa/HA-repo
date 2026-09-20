@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ikona bez jakehokoli nazvu: tmava dlazdice s ukazatelem. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+  <item>
+    <shape android:shape="rectangle">
+      <solid android:color="#FF05090D" />
+      <corners android:radius="12dp" />
+    </shape>
+  </item>
+  <item android:drawable="@drawable/ic_panel_glyph"
+        android:top="14dp" android:bottom="14dp"
+        android:left="14dp" android:right="14dp" />
+</layer-list>

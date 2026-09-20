@@ -1,0 +1,473 @@
+/* ------------------------------------------------------------------
+   Slepeni celku: nacte nastaveni, spoji se s Home Assistantem, postavi
+   panel a hlida, jestli pred tabletem nekdo je.
+
+   Rezimy obrazovky (trida na <body>):
+     mode-live     - normalni panel
+     mode-ambient  - klidovy rezim (hodiny a dve hodnoty)
+     mode-down     - spojeni s Home Assistantem je pryc
+     mode-setup    - jeste neni co ukazovat
+     oled-off      - uplna tma, nez displej zhasne uplne
+   ------------------------------------------------------------------ */
+'use strict';
+
+(function () {
+
+  var cfg = { baseUrl: '', token: '', source: 'ha', layout: '', native: false };
+  var layout = Layout.empty();
+  var view = null;          // vysledek Render.build
+  var conn = null;
+  var demo = false;
+
+  /* ================= nastaveni ================= */
+
+  function loadConfig() {
+    // V tabletu prijde nastaveni z aplikace, v prohlizeci (pri ladeni)
+    // z localStorage - jinak by se panel nedal vyzkouset na pocitaci.
+    if (window.Panel && Panel.config) {
+      try { cfg = JSON.parse(Panel.config()); } catch (e) {}
+    } else {
+      try {
+        cfg = JSON.parse(localStorage.getItem('panelCfg') || '{}');
+      } catch (e) { cfg = {}; }
+    }
+    cfg.baseUrl = cfg.baseUrl || '';
+    cfg.token = cfg.token || '';
+    try {
+      layout = Layout.normalize(cfg.layout ? JSON.parse(cfg.layout) : {});
+    } catch (e) {
+      layout = Layout.empty();
+    }
+  }
+
+  function saveLayout(next) {
+    layout = Layout.normalize(next);
+    var json = JSON.stringify(layout);
+    if (window.Panel && Panel.saveLayout) Panel.saveLayout(json);
+    else {
+      cfg.layout = json;
+      try { localStorage.setItem('panelCfg', JSON.stringify(cfg)); } catch (e) {}
+    }
+    rebuild();
+    toast('Panel uložen.');
+  }
+
+  /* ================= plocha ================= */
+
+  var driftX = 0, driftY = 0;
+
+  function fit() {
+    var vv = window.visualViewport;
+    var probe = document.getElementById('vhProbe');
+    var measured = probe ? probe.getBoundingClientRect().height : 0;
+    var vh = measured > 40 ? measured : (vv ? vv.height : innerHeight);
+    var vw = vv ? vv.width : innerWidth;
+
+    // Tablet na vysku dostane vlastni navrhovy prostor, jinak by panel
+    // na sirku zbyl jako uzky prouzek uprostred.
+    var portrait = vh > vw * 1.05;
+    document.body.classList.toggle('is-portrait', portrait);
+    var W = portrait ? 1400 : 2400, H = portrait ? 2000 : 1080;
+
+    var st = document.getElementById('stage');
+    var s = Math.min(vw / W, vh / H);
+    st.style.transform = 'scale(' + s + ')';
+    st.style.left = ((vw - W * s) / 2 + driftX) + 'px';
+    st.style.top = ((vh - H * s) / 2 + driftY) + 'px';
+  }
+
+  /* Displej sviti cele dny se statickym obrazem, takze se cely panel
+     kazdou minutu nenapadne posune o par pixelu - jinak by se do OLED
+     vypalila cisla. Posun je plynuly pres osm vterin, oko ho nechyti. */
+  function startDrift() {
+    setInterval(function () {
+      var st = document.getElementById('stage');
+      st.style.transition = 'left 8s linear, top 8s linear';
+      driftX = Math.round((Math.random() * 2 - 1) * 5);
+      driftY = Math.round((Math.random() * 2 - 1) * 5);
+      fit();
+      setTimeout(function () { st.style.transition = ''; }, 8300);
+    }, 60000);
+  }
+
+  /* ================= start ================= */
+
+  var BOOT = ['Načítám nastavení…', 'Spojuji se s Home Assistantem…', 'Čtu stavy entit…', 'Panel připraven'];
+
+  function playBoot() {
+    var box = document.getElementById('boot');
+    var fill = box.querySelector('.bl i');
+    var marks = box.querySelectorAll('.boot-steps i');
+    var txt = document.getElementById('bootTxt');
+    var i = 0;
+    function step() {
+      txt.textContent = BOOT[i];
+      fill.style.width = ((i + 1) / BOOT.length * 100) + '%';
+      for (var m = 0; m < marks.length; m++) marks[m].classList.toggle('active', m <= i);
+      if (++i >= BOOT.length) clearInterval(t);
+    }
+    step();
+    var t = setInterval(step, 430);
+    setTimeout(function () { box.classList.add('done'); }, 2050);
+  }
+
+  /* ================= rezimy ================= */
+
+  function setMode(m) {
+    var b = document.body;
+    if (b.classList.contains('mode-' + m)) return;
+    b.classList.remove('mode-live', 'mode-ambient', 'mode-down', 'mode-setup');
+    b.classList.add('mode-' + m);
+    if (m === 'ambient') startOrganism();
+  }
+
+  function shockwave() {
+    var el = document.getElementById('pulse');
+    el.classList.remove('go');
+    void el.offsetWidth;
+    el.classList.add('go');
+  }
+
+  var toastTimer = null;
+  window.panelToast = function (msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2600);
+  };
+  function toast(m) { window.panelToast(m); }
+
+  /* ================= pritomnost =================
+     V tabletu rozhoduje aplikace (dotyk, cidlo priblizeni, kamera) a
+     zavola window.panelPresence(). V prohlizeci si stranka hlida cas
+     sama, aby sel klidovy rezim vyzkouset i na pocitaci. */
+
+  var lastTouch = Date.now();
+
+  window.panelPresence = function (phase) {
+    if (Editor.isOpen()) return;            // pri uprave panelu se nic neprepina
+    if (phase === 'dim') {
+      document.body.classList.add('oled-off');
+      stopOrganism();
+      return;
+    }
+    document.body.classList.remove('oled-off');
+    if (phase === 'idle') {
+      setMode('ambient');
+    } else {
+      var wasAmbient = document.body.classList.contains('mode-ambient');
+      setMode(conn && conn.status === 'ready' ? 'live' : (demo ? 'live' : currentFallbackMode()));
+      if (wasAmbient) {
+        shockwave();
+        var nodes = document.querySelectorAll('.anim');
+        for (var i = 0; i < nodes.length; i++) {
+          nodes[i].style.animation = 'none';
+          void nodes[i].offsetWidth;
+          nodes[i].style.animation = '';
+        }
+      }
+    }
+  };
+
+  function currentFallbackMode() {
+    if (!cfg.baseUrl || !cfg.token) return 'setup';
+    if (conn && (conn.status === 'down' || conn.status === 'badtoken')) return 'down';
+    return 'live';
+  }
+
+  function browserPresence() {
+    if (window.Panel && Panel.isNativeApp) return;   // v tabletu to resi aplikace
+    ['touchstart', 'mousedown', 'mousemove', 'keydown'].forEach(function (ev) {
+      addEventListener(ev, function () {
+        lastTouch = Date.now();
+        if (document.body.classList.contains('mode-ambient')) window.panelPresence('active');
+      }, { passive: true });
+    });
+    setInterval(function () {
+      if (Date.now() - lastTouch > 120000) window.panelPresence('idle');
+    }, 5000);
+  }
+
+  /* ================= klidova kresba =================
+     Dve pomalu se otacejici pole. Nic to nemeri, jen to dava klidove
+     obrazovce hloubku - a hlavne se to porad hybe, takze na displeji
+     nestoji zadny staticky tvar. */
+
+  var cvs, ctx, rafId = null, bornAt = 0, spin = [0, 0];
+
+  function sizeCanvas() {
+    if (!cvs) return;
+    var dpr = Math.min(devicePixelRatio || 1, 2);
+    var w = innerWidth, h = innerHeight;
+    if (cvs.width !== Math.round(w * dpr)) cvs.width = Math.round(w * dpr);
+    if (cvs.height !== Math.round(h * dpr)) cvs.height = Math.round(h * dpr);
+    cvs.style.width = w + 'px';
+    cvs.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function startOrganism() {
+    if (rafId || !cvs) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    sizeCanvas();
+    bornAt = performance.now();
+    rafId = requestAnimationFrame(draw);
+  }
+
+  function stopOrganism() {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (ctx) ctx.clearRect(0, 0, innerWidth, innerHeight);
+  }
+
+  function draw(ts) {
+    if (!document.body.classList.contains('mode-ambient')
+        || document.body.classList.contains('oled-off')) { rafId = null; return; }
+    rafId = requestAnimationFrame(draw);
+
+    var W = innerWidth, H = innerHeight, cx = W / 2, cy = H / 2;
+    ctx.clearRect(0, 0, W, H);
+    var age = Math.min(1, (ts - bornAt) / 1800), t = ts / 1000;
+    spin[0] += 0.0022; spin[1] -= 0.0017;
+
+    var fields = [{ x: cx - W * 0.19, c: '54,216,255', s: spin[0] },
+                  { x: cx + W * 0.19, c: '255,139,62', s: spin[1] }];
+    for (var f = 0; f < fields.length; f++) {
+      var fl = fields[f];
+      var radius = Math.min(W * 0.26, H * 0.64) * (1 + Math.sin(t * 0.65 + f * 1.4) * 0.012);
+      var glow = ctx.createRadialGradient(fl.x, cy, 0, fl.x, cy, radius);
+      glow.addColorStop(0, 'rgba(' + fl.c + ',' + (0.10 * age) + ')');
+      glow.addColorStop(1, 'rgba(' + fl.c + ',0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, H);
+      for (var i = 0; i < 4; i++) {
+        var r = radius * (0.6 + i * 0.16);
+        var phase = fl.s * (i % 2 ? -1 : 1) + i * 1.7;
+        ctx.beginPath();
+        ctx.ellipse(fl.x, cy, r, r * 0.82, -0.28, phase, phase + Math.PI * 1.2);
+        ctx.strokeStyle = 'rgba(' + fl.c + ',' + ((0.12 + i * 0.025) * age) + ')';
+        ctx.lineWidth = i === 0 ? 2 : 1;
+        ctx.stroke();
+      }
+    }
+  }
+
+  /* ================= hodiny ================= */
+
+  function tick() {
+    var d = new Date();
+    if (!view) return;
+    view.clock.t.textContent = U.clockTime(d, true);
+    view.clock.d.textContent = U.clockDate(d);
+    if (view.clock.aTime) view.clock.aTime.textContent = U.clockTime(d, false);
+    if (view.clock.aDate) view.clock.aDate.textContent = U.clockDate(d);
+  }
+
+  /* ================= spojeni ================= */
+
+  function badge(text, cls) {
+    if (!view) return;
+    view.badge.className = 'badge' + (cls ? ' ' + cls : '');
+    view.badge.lastChild.textContent = text;
+  }
+
+  /* Po prestavbe panelu je odznak novy - musi hned rict, jak na tom
+     spojeni je, jinak by hlasil "Spojuji" i pri behu. */
+  var BADGE = {
+    ready: ['Živě', ''], loading: ['Načítám', 'warn'], connecting: ['Spojuji', 'warn'],
+    reconnecting: ['Spojuji znovu', 'warn'], down: ['Bez spojení', 'bad'],
+    badtoken: ['Token neplatí', 'bad'], unconfigured: ['Nenastaveno', 'warn'],
+    closed: ['Odpojeno', 'warn'], idle: ['Spojuji', 'warn']
+  };
+  function syncBadge() {
+    if (demo) { badge('Ukázka', 'warn'); return; }
+    var b = BADGE[conn ? conn.status : 'unconfigured'] || BADGE.idle;
+    badge(b[0], b[1]);
+  }
+
+  function connect() {
+    if (conn) conn.close();
+    if (!cfg.baseUrl || !cfg.token) { setMode('setup'); return; }
+
+    conn = new HaConn({
+      baseUrl: cfg.baseUrl,
+      token: cfg.token,
+      onStatus: function (status, detail) {
+        if (status === 'ready') {
+          badge('Živě', '');
+          if (!document.body.classList.contains('mode-ambient')) setMode('live');
+        } else if (status === 'badtoken') {
+          badge('Token neplatí', 'bad');
+          downOverlay('Token neplatí', 'Home Assistant odmítl přístupový token. '
+            + 'Vytvoř nový v profilu a vlož ho v nastavení aplikace.', detail);
+          setMode('down');
+        } else if (status === 'down') {
+          badge('Bez spojení', 'bad');
+          downOverlay('Home Assistant neodpovídá',
+            'Panel se zkouší spojit znovu. Data na obrazovce jsou poslední známá.', detail);
+          if (!document.body.classList.contains('mode-ambient')) setMode('down');
+        } else {
+          badge(status === 'loading' ? 'Načítám' : 'Spojuji', 'warn');
+        }
+      },
+      onStates: function (states) {
+        applyControl(states, true);
+        if (Layout.isEmpty(layout)) {
+          // Prvni spusteni: rovnou neco ukazat, at panel nezustane prazdny.
+          layout = Layout.fromStates(states);
+          if (!Layout.isEmpty(layout)) {
+            var json = JSON.stringify(layout);
+            if (window.Panel && Panel.saveLayout) Panel.saveLayout(json);
+            rebuild();
+          }
+        }
+        if (view) view.refresh(states);
+      },
+      onChange: function (entityId, st, states) {
+        if (view) view.refreshOne(entityId, states);
+        if (layout.control && (entityId === layout.control.screen
+            || entityId === layout.control.brightness)) {
+          applyControl(states, false);
+        }
+      }
+    });
+    conn.connect();
+  }
+
+  /* ---- prikazy z Home Assistantu ----
+     Panel se chova jako zarizeni: prepinac rozhoduje o displeji, cislo o
+     jasu. Prvni cteni po spojeni jas nastavi, ale displej nezhasina -
+     jinak by tablet po restartu zhasnul drive, nez by ho kdo videl. */
+  var lastScreen = null, lastBright = null;
+
+  function applyControl(states, first) {
+    if (!layout.control || !window.Panel) return;
+    var sc = layout.control.screen && states[layout.control.screen];
+    if (sc) {
+      var on = sc.state === 'on';
+      if (on !== lastScreen) {
+        lastScreen = on;
+        if (!(first && !on) && Panel.screen) Panel.screen(on ? 'on' : 'off');
+      }
+    }
+    var br = layout.control.brightness && states[layout.control.brightness];
+    if (br) {
+      var v = Math.round(U.num(br.state));
+      if (!isNaN(v) && v !== lastBright) {
+        lastBright = v;
+        if (Panel.setBrightness) Panel.setBrightness(Math.max(1, Math.min(100, v)));
+      }
+    }
+  }
+
+  function downOverlay(title, text, note) {
+    document.getElementById('downTitle').textContent = title;
+    document.getElementById('downText').textContent = text;
+    document.getElementById('downNote').textContent = note ? ('Důvod: ' + note) : '';
+  }
+
+  /* ================= panel ================= */
+
+  function rebuild() {
+    view = Render.build(layout, document.getElementById('stage'), {
+      onTap: onTap,
+      onCog: openEditor
+    });
+    tick();
+    syncBadge();
+    if (conn && conn.states) view.refresh(conn.states);
+    if (demo) view.refresh(demoStates);
+  }
+
+  function onTap(entityId) {
+    if (window.Panel && Panel.tap) Panel.tap();
+    if (window.Panel && Panel.activity) Panel.activity();
+    if (demo) { toast('Ukázka — nic se doopravdy nepřepíná.'); return; }
+    if (!conn || conn.status !== 'ready') { toast('Bez spojení s Home Assistantem.'); return; }
+    var st = conn.states[entityId];
+    var svc = U.tapService(entityId, st ? st.state : '');
+    if (!svc) { toast('Tuhle entitu přepnout nejde.'); return; }
+    conn.callService(svc.domain, svc.service, { entity_id: entityId });
+  }
+
+  function openEditor() {
+    if (window.Panel && Panel.activity) Panel.activity();
+    Editor.open(layout, demo ? demoStates : (conn ? conn.states : {}), saveLayout);
+  }
+
+  /* ================= ukazka bez Home Assistantu ================= */
+
+  var demoStates = {};
+
+  function startDemo() {
+    demo = true;
+    var now = new Date().toISOString();
+    function s(id, state, attrs) {
+      demoStates[id] = { entity_id: id, state: String(state), attributes: attrs || {}, last_changed: now };
+    }
+    s('sensor.obyvak_teplota', 22.4, { friendly_name: 'Obývák', device_class: 'temperature', unit_of_measurement: '°C' });
+    s('sensor.obyvak_vlhkost', 47, { friendly_name: 'Vlhkost obývák', device_class: 'humidity', unit_of_measurement: '%' });
+    s('sensor.venku_teplota', 8.6, { friendly_name: 'Venku', device_class: 'temperature', unit_of_measurement: '°C' });
+    s('sensor.venku_vlhkost', 81, { friendly_name: 'Vlhkost venku', device_class: 'humidity', unit_of_measurement: '%' });
+    s('sensor.co2', 870, { friendly_name: 'CO₂ ložnice', device_class: 'carbon_dioxide', unit_of_measurement: 'ppm' });
+    s('sensor.spotreba', 412, { friendly_name: 'Odběr domu', device_class: 'power', unit_of_measurement: 'W' });
+    s('light.kuchyne', 'on', { friendly_name: 'Kuchyně' });
+    s('light.loznice', 'off', { friendly_name: 'Ložnice' });
+    s('switch.kotel', 'on', { friendly_name: 'Kotel' });
+    s('binary_sensor.dvere', 'off', { friendly_name: 'Vchodové dveře', device_class: 'door' });
+    s('sensor.tablet_baterie', 72, { friendly_name: 'Tablet', device_class: 'battery', unit_of_measurement: '%' });
+
+    layout = Layout.fromStates(demoStates);
+    layout.title = '';
+    rebuild();
+    setMode('live');
+    badge('Ukázka', 'warn');
+    toast('Ukázka bez Home Assistanta. Nastavení najdeš pod ozubeným kolem.');
+  }
+
+  /* ================= spusteni ================= */
+
+  function boot() {
+    cvs = document.getElementById('organism');
+    if (cvs && cvs.getContext) ctx = cvs.getContext('2d');
+
+    loadConfig();
+    rebuild();
+    playBoot();
+    fit();
+    startDrift();
+    setInterval(tick, 1000);
+    tick();
+
+    addEventListener('resize', function () { fit(); sizeCanvas(); });
+    addEventListener('orientationchange', function () { setTimeout(fit, 150); });
+    if (window.visualViewport) {
+      visualViewport.addEventListener('resize', fit);
+    }
+    addEventListener('load', function () { fit(); setTimeout(fit, 400); setTimeout(fit, 1200); });
+
+    document.getElementById('setupBtn').addEventListener('click', function () {
+      if (window.Panel && Panel.openSettings) Panel.openSettings();
+      else toast('Nastavení aplikace je dostupné jen v tabletu.');
+    });
+    document.getElementById('demoBtn').addEventListener('click', startDemo);
+    document.getElementById('downSettings').addEventListener('click', function () {
+      if (window.Panel && Panel.openSettings) Panel.openSettings();
+    });
+
+    // Kazdy dotyk odklada klidovy rezim i v aplikaci.
+    addEventListener('touchstart', function () {
+      if (window.Panel && Panel.activity) Panel.activity();
+    }, { passive: true });
+
+    browserPresence();
+    connect();
+    setMode(cfg.baseUrl && cfg.token ? 'live' : 'setup');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();

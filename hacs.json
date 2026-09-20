@@ -1,0 +1,7 @@
+{
+  "name": "HA Panel",
+  "version": "1.0.0",
+  "render_readme": true,
+  "filename": "ha-panel-card.js",
+  "homeassistant": "2024.4.0"
+}

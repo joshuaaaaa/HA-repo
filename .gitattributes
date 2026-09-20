@@ -1,0 +1,6 @@
+# Konce radku resi git sam.
+* text=auto
+*.png binary
+*.jar binary
+gradlew text eol=lf
+gradlew.bat text eol=crlf

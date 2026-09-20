@@ -1,0 +1,18 @@
+// Projekt se otevira primo v Android Studiu: File > Open > slozka "android".
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "HA Panel"
+include ':app'

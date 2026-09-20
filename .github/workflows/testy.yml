@@ -1,0 +1,50 @@
+name: testy
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    # Testy pousti kod panelu v Node bez prohlizece a bez jedine zavislosti.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: testy panelu
+        run: |
+          for t in tests/*.cjs; do
+            echo "== $t"
+            node "$t"
+          done
+      - name: sestavena karta je aktualni
+        run: node tools/build-card.mjs --check
+
+  yaml:
+    # Blueprinty a balicek musi byt platny YAML - preklep by se jinak
+    # projevil az pri importu do Home Assistantu.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: kontrola YAMLu
+        run: |
+          python3 - <<'PY'
+          import glob, sys, yaml
+          class L(yaml.SafeLoader): pass
+          L.add_constructor('!input', lambda l, n: {'!input': l.construct_scalar(n)})
+          L.add_constructor('!include_dir_named', lambda l, n: str(n.value))
+          chyb = 0
+          for f in glob.glob('blueprints/**/*.yaml', recursive=True) + glob.glob('homeassistant/**/*.yaml', recursive=True):
+              try:
+                  yaml.load(open(f, encoding='utf-8'), Loader=L)
+                  print('ok ', f)
+              except Exception as e:
+                  print('CHYBA', f, e); chyb += 1
+          sys.exit(1 if chyb else 0)
+          PY

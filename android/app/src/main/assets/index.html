@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<!-- Nazev okna nikde nesviti (aplikace bezi bez pruhu), ale at je poctivy. -->
+<title>Panel</title>
+<link rel="stylesheet" href="css/panel.css">
+<link rel="stylesheet" href="css/editor.css">
+</head>
+<body class="mode-live">
+
+<!-- Sonda pro mereni skutecne viditelne vysky. 100svh = vyska pri
+     ZOBRAZENE liste prohlizece; innerHeight ji na Androidu nadhodnocuje
+     a spodni radek by se oriznul. -->
+<div id="vhProbe" style="position:fixed;top:0;left:0;width:1px;height:100svh;
+     pointer-events:none;opacity:0;z-index:-1"></div>
+
+<div class="bg"></div><div class="scan"></div>
+<canvas id="organism"></canvas>
+<div id="pulse"></div>
+
+<!-- Start panelu. Zadny nazev, jen postup. -->
+<div id="boot">
+  <div class="boot-emblem" aria-hidden="true"></div>
+  <div class="boot-kicker">Spouštění panelu</div>
+  <div class="bl"><i></i></div>
+  <div class="bt" id="bootTxt">&nbsp;</div>
+  <div class="boot-steps" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+</div>
+
+<!-- Obsah plochy kresli render.js podle uloženého rozvržení. -->
+<div id="stage"></div>
+
+<!-- Spojeni s Home Assistantem je pryc. -->
+<div class="overlay ov-down">
+  <div class="state-kicker">Spojení</div>
+  <div class="signal-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+  <h2 id="downTitle">Home Assistant neodpovídá</h2>
+  <p id="downText">Panel se zkouší spojit znovu.</p>
+  <div class="state-note" id="downNote"></div>
+  <button class="bigbtn ghost" id="downSettings">Nastavení</button>
+</div>
+
+<!-- Jeste neni co ukazovat. -->
+<div class="overlay ov-setup">
+  <div class="state-kicker">Panel</div>
+  <h2>Připoj tablet k Home Assistantu</h2>
+  <p>V nastavení zadej adresu Home Assistanta a dlouhodobý přístupový token
+     ze svého profilu. Pak si v panelu vybereš entity, které chceš vidět.</p>
+  <button class="bigbtn" id="setupBtn">Otevřít nastavení</button>
+  <button class="bigbtn ghost" id="demoBtn">Ukázat, jak to vypadá</button>
+</div>
+
+<div id="toast"></div>
+<div id="editor"></div>
+
+<script src="js/util.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/ha.js"></script>
+<script src="js/render.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

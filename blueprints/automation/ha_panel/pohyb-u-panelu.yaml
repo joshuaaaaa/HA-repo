@@ -1,0 +1,77 @@
+blueprint:
+  name: HA Panel – pohyb u panelu rozsvítí světlo
+  description: >-
+    Tablet s aplikací HA Panel hlásí pohyb před sebou jako běžné čidlo
+    (binary_sensor.<název>_pohyb). Tahle automatizace podle něj rozsvítí
+    světlo — a po odchodu ho zase zhasne.
+
+
+    Hodí se do chodby nebo kuchyně: panel stejně hlídá kvůli probuzení
+    displeje, takže další čidlo na zeď už není potřeba.
+  domain: automation
+  source_url: https://github.com/joshuaaaaa/HA-repo/blob/main/blueprints/automation/ha_panel/pohyb-u-panelu.yaml
+  input:
+    pohyb:
+      name: Čidlo pohybu panelu
+      description: Entita, kterou tablet vytvořil — obvykle binary_sensor.<název>_pohyb.
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+    svetlo:
+      name: Co rozsvítit
+      selector:
+        target:
+          entity:
+            - domain: light
+            - domain: switch
+    jen_po_setmeni:
+      name: Jen po setmění
+      description: Ve dne se nerozsvítí. Podle polohy slunce (sun.sun).
+      default: true
+      selector:
+        boolean:
+    zhasnout_po:
+      name: Zhasnout po (minuty)
+      description: Kolik minut po posledním pohybu zhasnout. Nula = nezhasínat.
+      default: 3
+      selector:
+        number:
+          min: 0
+          max: 60
+          unit_of_measurement: min
+
+mode: restart
+max_exceeded: silent
+
+variables:
+  jen_po_setmeni: !input jen_po_setmeni
+  zhasnout_po: !input zhasnout_po
+
+trigger:
+  - platform: state
+    entity_id: !input pohyb
+    to: "on"
+
+condition:
+  - condition: template
+    value_template: >-
+      {{ not jen_po_setmeni or is_state('sun.sun', 'below_horizon') }}
+
+action:
+  - service: homeassistant.turn_on
+    target: !input svetlo
+  # Čeká se, až panel přestane vidět pohyb; teprve pak běží odpočet.
+  - wait_for_trigger:
+      - platform: state
+        entity_id: !input pohyb
+        to: "off"
+  - condition: template
+    value_template: "{{ zhasnout_po | int(0) > 0 }}"
+  - delay:
+      minutes: !input zhasnout_po
+  - condition: state
+    entity_id: !input pohyb
+    state: "off"
+  - service: homeassistant.turn_off
+    target: !input svetlo
