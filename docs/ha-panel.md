@@ -158,7 +158,7 @@ Totéž má i spodní řada: na záložce *Panely* se nastavuje *Panelů na řá
   |---|---|
   | **Budík** | velký oblouk se segmenty a číslem uprostřed (výchozí) |
   | **Sloupec** | svislý sloupec vedle čísla — stejné čtení jako budík, míň místa |
-  | **Graf (křivka)** | průběh za posledních 1–72 hodin, u okraje krajní naměřené hodnoty |
+  | **Graf (křivka)** | průběh za posledních 1–72 hodin se stupnicemi: hodnoty vlevo na kulatých číslech, časy dole |
   | **Jen číslo** | velké číslo bez rozsahu — pro veličiny, kde žádný rozsah nedává smysl |
 
 - **Entita budíku** — hlavní hodnota. Po výběru se rozsah, popisek i stupně
@@ -177,13 +177,45 @@ U ukazatele i dlaždice se vybírá **Zobrazení**: *Jen hodnota*, *Pruh*
 
 ### Panely
 Řada dlaždic dole, až osm v jednom panelu, **čtyři panely vedle sebe**.
-U každé dlaždice se dá zapnout pruh a nastavit, co má dělat **klepnutí**:
+U každé dlaždice se nastavuje **Zobrazení** a co má dělat **klepnutí**:
 
 - *Podle druhu entity* (výchozí) — světlo, zásuvka, přepínač a ventilátor
   se přepnou, scéna a skript spustí, žaluzie otevře/zavře, zámek odemkne,
-  přehrávač pauzne. Čidla se jen ukazují.
+  přehrávač pauzne. U čidla se otevře okno s podrobnostmi.
 - *Nic* — dlaždice jen ukazuje.
 - *Přepnout* — vynutí `toggle`.
+- *Okno s ovládáním* — rovnou otevře okno (níž).
+
+**Dlouhý stisk (0,6 s) otevře okno s ovládáním u každé dlaždice i sekce**,
+ať je klepnutí nastavené jakkoli — stejný zvyk jako v Home Assistantu.
+
+### Okno s ovládáním
+
+Co okno nabídne, se řídí druhem entity:
+
+| Entita | Co v okně je |
+|---|---|
+| **Světlo** | Zapnout/Vypnout, **jas**, **teplota bílé** (když ji světlo umí) a dvanáct **barev** |
+| **Zásuvka, přepínač, siréna** | Zapnout / Vypnout |
+| **Ventilátor** | Zapnout/Vypnout a otáčky |
+| **Žaluzie / roleta** | Otevřít, Stop, Zavřít a poloha v procentech |
+| **Zámek** | Zamknout / Odemknout |
+| **Přehrávač** | Přehrát/Pauza, hlasitost, předchozí a další |
+| **Termostat** | Cílová teplota po půl stupních a režimy (Topit, Chladit, Auto…) |
+| **Scéna, skript** | Spustit |
+| **Vysavač** | Uklidit, Do doku |
+| **Čidlo** | hodnota, křivka za posledních 6 hodin a kdy se naposledy změnila |
+
+Posuvníky posílají hodnotu **až po puštění prstu** — jinak by každé
+škubnutí poslalo příkaz a světlo by blikalo. Okno se zavírá křížkem nebo
+klepnutím mimo ně.
+
+### Zvětšení sekce
+
+**Klepnutí na sekci** ji rozbalí přes celou obrazovku — z místa, kde
+stojí, takže je vidět, co se zvětšilo. Ve velkém běží dál živě (včetně
+křivky) a zavírá se křížkem nebo klepnutím vedle. Hodí se na graf, ze
+kterého chceš přečíst podrobnosti.
 
 ### Klid
 Co je vidět v klidovém režimu: **až čtyři velké kruhy** s hodnotami a až tři
@@ -205,6 +237,8 @@ poplach). Když je hodnota číslo 0–100, ukáže se jako postup.
 
 ### Celek
 Název a podtitulek panelu (**prázdné = v záhlaví zůstanou jen hodiny**),
+**počasí v záhlaví** (nepovinná entita `weather.*` — vedle hodin se ukáže
+teplota venku a slovo o stavu),
 ovládání z Home Assistanta, záloha rozvržení jako JSON a tlačítko
 **Sestavit z mých entit**, které rozvržení postaví znovu podle toho, co v
 Home Assistantu je.
@@ -406,6 +440,7 @@ android/
             ├─ layout.js           rozvržení a jeho kontrola
             ├─ ha.js               WebSocket klient Home Assistanta
             ├─ history.js          průběh hodnot pro křivky
+            ├─ dialog.js           okno s ovládáním entity
             ├─ render.js           stavba obrazovky a vazby na entity
             ├─ editor.js           editor a výběr entit
             └─ app.js              slepení celku, režimy, klidový režim
@@ -418,4 +453,5 @@ node tests/hapanel-util.cjs
 node tests/hapanel-layout.cjs
 node tests/hapanel-ws.cjs
 node tests/hapanel-history.cjs
+node tests/control-browser.mjs   # ovládání v prohlížeči (potřebuje Playwright)
 ```

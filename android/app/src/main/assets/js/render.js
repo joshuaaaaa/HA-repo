@@ -51,47 +51,100 @@ var Render = (function () {
     return e;
   }
 
-  function makeChart() {
+  /**
+   * Krivka. Cary se kresli do SVG s pevnou soustavou 0-100, ktera se
+   * roztahne na plochu (proto non-scaling-stroke v CSS), ale bod
+   * posledni hodnoty a popisky stupnice jsou HTML - v roztazenem SVG by
+   * se z kolecka stal ovál a z pisma paskvil.
+   */
+  function makeChart(opts) {
+    opts = opts || {};
+    var box = el('div', 'chartbox' + (opts.scales ? ' scaled' : ''));
     var svg = svgEl('svg', { 'class': 'chart', viewBox: '0 0 100 100',
                              preserveAspectRatio: 'none' });
-    [25, 50, 75].forEach(function (y) {
-      svg.appendChild(svgEl('line', { 'class': 'grid', x1: 0, x2: 100, y1: y, y2: y }));
-    });
+    var grid = svgEl('g', { 'class': 'gridlines' });
     var area = svgEl('path', { 'class': 'area', d: '' });
     var line = svgEl('path', { 'class': 'line', d: '' });
-    var dot = svgEl('circle', { 'class': 'dot', cx: -10, cy: -10, r: 2.2 });
-    svg.appendChild(area); svg.appendChild(line); svg.appendChild(dot);
+    svg.appendChild(grid); svg.appendChild(area); svg.appendChild(line);
+    box.appendChild(svg);
 
-    /** series = [{t,v}], vraci {lo,hi} skutecneho rozsahu (pro popisky) */
-    function draw(series, hours) {
+    var dot = el('i', 'cdot');
+    box.appendChild(dot);
+
+    var ylab = null, xlab = null;
+    if (opts.scales) {
+      ylab = el('div', 'cy');
+      xlab = el('div', 'cx');
+      box.appendChild(ylab);
+      box.appendChild(xlab);
+    }
+
+    /** series = [{t,v}]; vraci skutecny rozsah hodnot, nebo null */
+    function draw(series, hours, decimals) {
+      hours = hours || 6;
       if (!series || series.length < 2) {
-        area.setAttribute('d', ''); line.setAttribute('d', '');
-        dot.setAttribute('cx', -10);
+        area.setAttribute('d', '');
+        line.setAttribute('d', '');
+        grid.innerHTML = '';
+        dot.style.display = 'none';
+        if (ylab) ylab.innerHTML = '';
+        if (xlab) xlab.innerHTML = '';
         return null;
       }
-      var t1 = Date.now(), t0 = t1 - (hours || 6) * 3600000;
+      var t1 = Date.now(), t0 = t1 - hours * 3600000;
       var lo = Infinity, hi = -Infinity;
       series.forEach(function (p) { if (p.v < lo) lo = p.v; if (p.v > hi) hi = p.v; });
-      if (hi - lo < 1e-6) { hi = lo + 1; lo = lo - 1; }
-      var pad = (hi - lo) * 0.08;
-      var LO = lo - pad, HI = hi + pad;
+      if (hi - lo < 1e-9) { hi = lo + 1; lo = lo - 1; }
+
+      // Stupnice na kulatych cislech - "0, 20, 40" se cte lip nez
+      // "3,7 az 9,94" a cary mrizky pak neco znamenaji.
+      var step = niceStep((hi - lo) / 3);
+      var LO = Math.floor(lo / step) * step;
+      var HI = Math.ceil(hi / step) * step;
+      if (HI - LO < step) HI = LO + step;
+
+      var y = function (v) { return 100 - (v - LO) / (HI - LO) * 100; };
+      var x = function (t) { return Math.max(0, Math.min(100, (t - t0) / (t1 - t0) * 100)); };
+
+      var lines = '', ticks = [];
+      for (var g = LO; g <= HI + step / 2; g += step) {
+        var gy = y(g);
+        if (gy < -0.1 || gy > 100.1) continue;
+        lines += '<line class="grid" x1="0" x2="100" y1="' + gy.toFixed(2) + '" y2="' + gy.toFixed(2) + '"/>';
+        ticks.push({ v: g, y: gy });
+      }
+      grid.innerHTML = lines;
 
       var d = '', px = 0, py = 0;
       for (var i = 0; i < series.length; i++) {
-        var x = (series[i].t - t0) / (t1 - t0) * 100;
-        var y = 100 - (series[i].v - LO) / (HI - LO) * 100;
-        x = Math.max(0, Math.min(100, x));
-        d += (i ? ' L ' : 'M ') + x.toFixed(2) + ' ' + y.toFixed(2);
-        px = x; py = y;
+        var cx = x(series[i].t), cy = y(series[i].v);
+        d += (i ? ' L ' : 'M ') + cx.toFixed(2) + ' ' + cy.toFixed(2);
+        px = cx; py = cy;
       }
       line.setAttribute('d', d);
-      area.setAttribute('d', d + ' L ' + px.toFixed(2) + ' 100 L 0 100 Z');
-      dot.setAttribute('cx', px.toFixed(2));
-      dot.setAttribute('cy', py.toFixed(2));
-      return { lo: lo, hi: hi };
+      area.setAttribute('d', d + ' L ' + px.toFixed(2) + ' 100 L ' + x(series[0].t).toFixed(2) + ' 100 Z');
+
+      dot.style.display = '';
+      dot.style.left = px + '%';
+      dot.style.top = py + '%';
+
+      if (ylab) {
+        var yh = '';
+        ticks.forEach(function (t) {
+          yh += '<span style="top:' + t.y.toFixed(2) + '%">' + U.fmt(t.v, tickDecimals(step, decimals)) + '</span>';
+        });
+        ylab.innerHTML = yh;
+      }
+      if (xlab) {
+        var mid = new Date((t0 + t1) / 2);
+        xlab.innerHTML = '<span>' + U.clockTime(new Date(t0), false) + '</span>'
+          + '<span>' + U.clockTime(mid, false) + '</span>'
+          + '<span>teď</span>';
+      }
+      return { lo: lo, hi: hi, min: LO, max: HI };
     }
 
-    return { el: svg, draw: draw };
+    return { el: box, draw: draw };
   }
 
   /**
@@ -99,6 +152,12 @@ var Render = (function () {
    * Na klidove obrazovce je z toho pres celou sirku necitelna sipa,
    * tak se podtrzitka prevedou na mezery a delsi nazev se zkrati.
    */
+  function cleanLabel(name) {
+    var t = String(name || '').replace(/_/g, ' ').trim();
+    if (t.length > 22) t = t.slice(0, 21).trim() + '\u2026';
+    return t;
+  }
+
   /**
    * Cim vic znaku, tim mensi pismo - jinak by se "4727" do kruhu
    * neveslo a skoncilo by jako "4...".
@@ -112,17 +171,21 @@ var Render = (function () {
     return '';
   }
 
-  function cleanLabel(name) {
-    var t = String(name || '').replace(/_/g, ' ').trim();
-    if (t.length > 22) t = t.slice(0, 21).trim() + '\u2026';
-    return t;
+  /** Krok stupnice na kulate cislo: 1, 2, 2,5, 5 nebo 10 krat mocnina deseti. */
+  function niceStep(raw) {
+    if (!(raw > 0)) return 1;
+    var exp = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+    var f = raw / exp;
+    var mult = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10;
+    return mult * exp;
   }
 
-  /** "6 h zpět" -> text pod krivkou */
-  function spanLabel(hours) {
-    if (hours >= 48) return Math.round(hours / 24) + ' dny zpět';
-    if (hours >= 24) return '24 h zpět';
-    return hours + ' h zpět';
+  /** Kolik desetinnych mist ma popisek stupnice, at neni "0,00". */
+  function tickDecimals(step, decimals) {
+    if (step >= 10) return 0;
+    if (step >= 1) return decimals === null || decimals === undefined ? 0 : Math.min(1, decimals);
+    if (step >= 0.1) return 1;
+    return 2;
   }
 
   /**
@@ -143,6 +206,42 @@ var Render = (function () {
     // pri rucnim nastaveni by prekazelo.
     host.classList.add('fixed');
     host.dataset.cols = cols;
+  }
+
+  /**
+   * Dlouhy stisk (600 ms). Musi se pustit i pri posunu prstu, jinak by
+   * okno vyskocilo pri kazdem sjeti po obrazovce.
+   */
+  function longPress(node, fn) {
+    var timer = null, sx = 0, sy = 0;
+    function start(x, y) {
+      sx = x; sy = y;
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        timer = null;
+        node.classList.remove('held');
+        fn();
+      }, 600);
+      node.classList.add('held');
+    }
+    function stop() {
+      clearTimeout(timer);
+      timer = null;
+      node.classList.remove('held');
+    }
+    node.addEventListener('touchstart', function (e) {
+      var t = e.touches[0];
+      start(t.clientX, t.clientY);
+    }, { passive: true });
+    node.addEventListener('touchmove', function (e) {
+      var t = e.touches[0];
+      if (Math.abs(t.clientX - sx) > 12 || Math.abs(t.clientY - sy) > 12) stop();
+    }, { passive: true });
+    node.addEventListener('touchend', stop, { passive: true });
+    node.addEventListener('touchcancel', stop, { passive: true });
+    node.addEventListener('mousedown', function (e) { start(e.clientX, e.clientY); });
+    node.addEventListener('mouseup', stop);
+    node.addEventListener('mouseleave', stop);
   }
 
   /* ---------- pomocnici ---------- */
@@ -201,6 +300,21 @@ var Render = (function () {
     badge.appendChild(el('span', '', 'Spojuji'));
     header.appendChild(badge);
     header.appendChild(el('div', 'grow'));
+
+    if (layout.weather) {
+      var wx = el('div', 'wx');
+      var wxT = el('b', '', '--');
+      var wxW = el('span', '', '');
+      wx.appendChild(wxT);
+      wx.appendChild(wxW);
+      header.appendChild(wx);
+      bind(layout.weather, function (st) {
+        var w = U.weather(st);
+        if (!w) { wxT.textContent = '--'; wxW.textContent = 'nedostupné'; return; }
+        wxT.textContent = isNaN(w.temp) ? '--' : U.fmt(w.temp, 1) + ' ' + w.unit;
+        wxW.textContent = w.word;
+      });
+    }
 
     var clock = el('div', 'clock');
     var clockT = el('div', 't', '--:--:--');
@@ -416,6 +530,16 @@ var Render = (function () {
     var part = el('span', 'part', '');
     head.appendChild(part);
     sec.appendChild(head);
+
+    // Klepnuti na sekci ji zvetsi pres celou obrazovku (v karte pro
+    // Lovelace se nic takoveho nedeje - tam je mistem dashboard).
+    if (ctx.onZoom && !ctx.zoomed) {
+      sec.classList.add('zoomable');
+      sec.addEventListener('click', function () { ctx.onZoom(card, sec); });
+    }
+    if (card.dial.entity && ctx.onDetail) {
+      longPress(sec, function () { ctx.onDetail(card.dial.entity); });
+    }
     bind(card.dial.entity, function (st) {
       // Jmeno entity vedle nadpisu jen tehdy, kdyz rika neco noveho -
       // dvakrat totez vedle sebe je jen sum.
@@ -479,24 +603,19 @@ var Render = (function () {
       var ghead = el('div', 'ghead');
       ghead.appendChild(capEl); ghead.appendChild(nEl); ghead.appendChild(uEl); ghead.appendChild(stEl);
       var gbox = el('div', 'gbox');
-      var chart = makeChart();
-      var gmax = el('div', 'gmax', '');
-      var gmin = el('div', 'gmin', '');
+      var chart = makeChart({ scales: true });
       var gempty = el('div', 'gempty', 'zatím bez historie');
-      gbox.appendChild(chart.el); gbox.appendChild(gmax); gbox.appendChild(gmin); gbox.appendChild(gempty);
-      var span = el('div', 'span');
-      span.appendChild(el('span', '', spanLabel(card.hours || 6)));
-      span.appendChild(el('span', '', 'teď'));
-      wrap.appendChild(ghead); wrap.appendChild(gbox); wrap.appendChild(span);
+      gbox.appendChild(chart.el);
+      gbox.appendChild(gempty);
+      wrap.appendChild(ghead);
+      wrap.appendChild(gbox);
 
       graphs.push({
         entity: d.entity,
         hours: card.hours || 6,
         draw: function (series) {
-          var r = chart.draw(series, card.hours || 6);
+          var r = chart.draw(series, card.hours || 6, d.decimals);
           gempty.style.display = r ? 'none' : '';
-          gmax.textContent = r ? U.fmt(r.hi, d.decimals === null ? 1 : d.decimals) : '';
-          gmin.textContent = r ? U.fmt(r.lo, d.decimals === null ? 1 : d.decimals) : '';
         }
       });
 
@@ -586,7 +705,7 @@ var Render = (function () {
     return m;
   }
 
-  /** Mala krivka bez popisku - do dlazdice i do ukazatele. */
+  /** Mala krivka bez stupnic - do dlazdice i do ukazatele. */
   function addSpark(host, item, graphs) {
     var box = el('div', 'spark');
     var chart = makeChart();
@@ -596,7 +715,7 @@ var Render = (function () {
       graphs.push({
         entity: item.entity,
         hours: item.hours || 6,
-        draw: function (series) { chart.draw(series, item.hours || 6); }
+        draw: function (series) { chart.draw(series, item.hours || 6, item.decimals); }
       });
     }
     return chart;
@@ -655,7 +774,8 @@ var Render = (function () {
     // Znacka "tohle jde prepnout" patri jen tomu, co se opravdu prepina.
     // Karta v Lovelace navic necha klepnout na cokoli - u cidla se otevre
     // podrobnost, jak je v Home Assistantu zvykem.
-    var tappable = item.tap === 'toggle' || (item.tap === 'auto' && U.switchable(item.entity));
+    var tappable = item.tap === 'toggle' || item.tap === 'detail'
+                || (item.tap === 'auto' && U.switchable(item.entity));
     var clickable = tappable || (ctx.tapAll && item.entity && item.tap !== 'none');
     var t = el('div', 'lt' + (tappable ? ' act' : ''));
     var lk = el('div', 'lk');
@@ -679,9 +799,12 @@ var Render = (function () {
 
     if (clickable) {
       t.addEventListener('click', function () {
-        if (ctx.onTap) ctx.onTap(item.entity);
+        if (ctx.onTap) ctx.onTap(item.entity, item);
       });
     }
+    // Dlouhy stisk otevre okno s ovladanim - stejny zvyk jako v Home
+    // Assistantu, takze u nej clovek nemusi nic hledat.
+    if (item.entity && ctx.onDetail) longPress(t, function () { ctx.onDetail(item.entity); });
 
     bind(item.entity, function (st) {
       var d = U.display(st, item);
@@ -742,7 +865,8 @@ var Render = (function () {
     host.style.setProperty('--k', Math.max(o.min, Math.min(o.max, k)).toFixed(3));
   }
 
-  return { build: build, setSeg: setSeg, dialPaths: dialPaths, fitScale: fitScale };
+  return { build: build, setSeg: setSeg, dialPaths: dialPaths, fitScale: fitScale,
+           makeChart: makeChart };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = Render;

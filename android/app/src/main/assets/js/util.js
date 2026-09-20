@@ -49,6 +49,14 @@ var U = (function () {
     light: ['Světlo', 'Tma'], update: ['Aktualizace', 'Aktuální']
   };
 
+  /* Stavy pocasi cesky - entita weather.* je nese v anglictine. */
+  var WEATHER = {
+    'clear-night': 'Jasná noc', cloudy: 'Oblačno', fog: 'Mlha', hail: 'Krupobití',
+    lightning: 'Bouřky', 'lightning-rainy': 'Bouřky s deštěm', partlycloudy: 'Polojasno',
+    pouring: 'Vydatný déšť', rainy: 'Déšť', snowy: 'Sněžení', 'snowy-rainy': 'Déšť se sněhem',
+    sunny: 'Jasno', windy: 'Větrno', 'windy-variant': 'Větrno', exceptional: 'Výjimečné'
+  };
+
   /* Navrh rozsahu a stupnu podle druhu cidla - aby uzivatel po vybrani
      entity nemusel nic dopisovat. */
   var SUGGEST = {
@@ -227,8 +235,20 @@ var U = (function () {
     return null;
   }
 
+  /** Pocasi: slovo o stavu a teplota z atributu. */
+  function weather(st) {
+    if (!st) return null;
+    var a = st.attributes || {};
+    return {
+      word: WEATHER[st.state] || word(st.state),
+      temp: num(a.temperature),
+      unit: a.temperature_unit || '°C'
+    };
+  }
+
   return {
-    DAYS: DAYS, MONTHS: MONTHS, TONES: TONES, WORDS: WORDS, BINARY: BINARY, SUGGEST: SUGGEST,
+    DAYS: DAYS, MONTHS: MONTHS, TONES: TONES, WORDS: WORDS, BINARY: BINARY,
+    SUGGEST: SUGGEST, WEATHER: WEATHER, weather: weather,
     num: num, fmt: fmt, pct: pct, level: level, word: word, display: display,
     suggest: suggest, name: name, clockTime: clockTime, clockDate: clockDate, ago: ago,
     domain: domain, switchable: switchable, tapService: tapService

@@ -20,7 +20,8 @@ var Editor = (function () {
 
   var TONE_NAMES = { cyan: 'Modrá', amber: 'Oranžová', green: 'Zelená', violet: 'Fialová', red: 'Červená' };
   var LEVEL_NAMES = { good: 'V pořádku', warning: 'Zvýšené', serious: 'Vysoké', critical: 'Kritické', info: 'Informace', idle: 'Neutrální' };
-  var TAP_NAMES = { auto: 'Podle druhu entity', none: 'Nic (jen ukazuje)', toggle: 'Přepnout' };
+  var TAP_NAMES = { auto: 'Podle druhu entity', none: 'Nic (jen ukazuje)',
+                    toggle: 'Přepnout', detail: 'Okno s ovládáním' };
   var CARD_VIEW_NAMES = { gauge: 'Budík', bar: 'Sloupec', graph: 'Graf (křivka)', number: 'Jen číslo' };
   var ITEM_VIEW_NAMES = { value: 'Jen hodnota', bar: 'Pruh', graph: 'Křivka' };
   var HOURS = { 1: '1 hodina', 3: '3 hodiny', 6: '6 hodin', 12: '12 hodin',
@@ -329,6 +330,11 @@ var Editor = (function () {
       field('Název panelu', draft.title, function (v) { draft.title = v; }),
       field('Podtitulek', draft.subtitle, function (v) { draft.subtitle = v; })
     ));
+    inner.appendChild(el('div', 'ehint',
+      'Počasí v záhlaví (nepovinné): teplota venku a slovo o stavu vedle hodin.'));
+    inner.appendChild(row(entityField('Entita počasí', draft.weather, function (e) {
+      draft.weather = e;
+    })));
     block.appendChild(inner);
     page.appendChild(block);
 
@@ -427,6 +433,12 @@ var Editor = (function () {
                }, 'number')];
       if (opts.tap) {
         f.push(select('Klepnutí', item.tap, TAP_NAMES, function (v) { item.tap = v; }));
+      }
+      if (opts.tap && idx === 0) {
+        grow.appendChild(el('div', 'ehint',
+          'Dlouhý stisk otevře okno s ovládáním u každé dlaždice — jas, '
+          + 'barvu světla, polohu rolety, teplotu. Klepnutí si nastav podle '
+          + 'toho, co děláš častěji.'));
       }
       grow.appendChild(row.apply(null, f));
       // Na klidove obrazovce se nic neprepina a pruh tam nepatri.

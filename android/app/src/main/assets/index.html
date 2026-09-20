@@ -54,6 +54,15 @@
   <button class="bigbtn ghost" id="demoBtn">Ukázat, jak to vypadá</button>
 </div>
 
+<!-- Zvetsena sekce po klepnuti. Obsah kresli render.js znovu, takze
+     i ve velkem bezi zive. -->
+<div id="zoom">
+  <div class="zwin">
+    <div id="zoomBody"></div>
+    <button id="zoomClose" class="zclose">✕</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 <div id="editor"></div>
 
@@ -62,6 +71,7 @@
 <script src="js/ha.js"></script>
 <script src="js/history.js"></script>
 <script src="js/render.js"></script>
+<script src="js/dialog.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/app.js"></script>
 </body>

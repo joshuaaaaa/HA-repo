@@ -61,6 +61,14 @@ assert.deepEqual(U.tapService('lock.a', 'locked'), { domain: 'lock', service: 'u
 assert.equal(U.tapService('sensor.a', '21'), null, 'cidlo se prepnout neda');
 assert.ok(!U.switchable('sensor.a') && U.switchable('switch.a'));
 
+/* --- pocasi --- */
+const pocasi = U.weather({ state: 'partlycloudy', attributes: { temperature: 12.4 } });
+assert.equal(pocasi.word, 'Polojasno', 'stav pocasi se rekne cesky');
+assert.equal(pocasi.temp, 12.4);
+assert.equal(U.weather({ state: 'neco_noveho', attributes: {} }).word, 'Neco noveho',
+  'neznamy stav se aspon slusne prepise');
+assert.equal(U.weather(null), null, 'chybejici entita nespadne');
+
 /* --- pruh --- */
 assert.equal(U.pct(50, 0, 100), 50);
 assert.equal(U.pct(-10, 0, 100), 0, 'pruh nepretece do zaporu');

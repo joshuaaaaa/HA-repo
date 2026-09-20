@@ -22,6 +22,7 @@ function cardLayout(config) {
   var out = {
     title: config.title || '',
     subtitle: config.subtitle || '',
+    weather: config.weather || '',
     // columns/rows: kolik sekci na radek a kolik rad. Bez nich se
     // rozvrzeni poradi samo podle poctu sekci.
     grid: { cols: config.columns || 0, rows: config.rows || 0 },
@@ -154,7 +155,11 @@ class HaPanelCard extends HTMLElement {
       noCog: true,
       noAmbient: true,
       tapAll: true,
-      onTap: function (entityId) { self._tap(entityId); }
+      onTap: function (entityId, item) { self._tap(entityId, item); },
+      // Dlouhy stisk (a dlazdice nastavena na "Okno s ovladanim") otevre
+      // vlastni okno Home Assistanta - v dashboardu je doma a umi vic
+      // nez cokoli, co by karta nakreslila sama.
+      onDetail: function (entityId) { self._moreInfo(entityId); }
     });
 
     // Odznak spojení v aplikaci hlásí WebSocket; v Lovelace je spojení
@@ -245,8 +250,9 @@ class HaPanelCard extends HTMLElement {
     });
   }
 
-  _tap(entityId) {
+  _tap(entityId, item) {
     if (!this._hass || !entityId) return;
+    if (item && item.tap === 'detail') { this._moreInfo(entityId); return; }
     var st = this._hass.states[entityId];
     var svc = U.tapService(entityId, st ? st.state : '');
     if (!svc) { this._moreInfo(entityId); return; }

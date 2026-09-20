@@ -47,6 +47,10 @@ header::after{content:'';position:absolute;bottom:-1px;left:0;width:220px;height
 .badge.bad .led{background:var(--critical);box-shadow:0 0 12px #ff536980}
 .badge.bad span{color:var(--critical)}
 header .grow{flex:1}
+.wx{flex:none;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
+ padding-right:26px;margin-right:4px;border-right:1px solid var(--rail)}
+.wx b{font:500 30px var(--display);color:#dcebf6;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wx span{font:15px var(--mono);letter-spacing:2px;color:var(--muted);text-transform:uppercase;white-space:nowrap}
 .clock .t{font:46px/1 var(--mono);letter-spacing:-2px;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 .clock .d{font-size:18px;color:var(--muted);letter-spacing:1px;margin-top:5px;text-align:right;white-space:nowrap}
 /* Ozubene kolo: jedina cesta do editoru. Zamerne male a v rohu - panel
@@ -175,17 +179,6 @@ body.is-portrait .mid.n5 > *,body.is-portrait .mid.n5 > *:nth-child(n+4){grid-co
 .graphw .span{display:flex;justify-content:space-between;flex:none;margin-top:calc(6px*var(--k));
  font:calc(17px*var(--k)) var(--mono);color:#6f8798;letter-spacing:1px}
 
-/* Vlastni kresba krivky. Cary se nesmi roztahovat s plochou, proto
-   maji vsechny non-scaling-stroke. */
-.chart{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.chart .grid{stroke:#24323d;stroke-width:1;vector-effect:non-scaling-stroke}
-.chart .area{fill:rgba(var(--rgb),.16)}
-.chart .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
-.chart .dot{fill:var(--accent)}
-/* Popisky rozsahu jsou HTML - v roztazenem SVG by se pismo zdeformovalo. */
-.gbox .gmax,.gbox .gmin{position:absolute;left:0;font:calc(17px*var(--k)) var(--mono);color:#6f8798;letter-spacing:1px;pointer-events:none}
-.gbox .gmax{top:calc(-4px*var(--k))}
-.gbox .gmin{bottom:calc(-4px*var(--k))}
 .gempty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
  font:calc(20px*var(--k)) var(--mono);color:#4e6373;letter-spacing:2px}
 
@@ -229,6 +222,25 @@ body.is-portrait .bot.n3,body.is-portrait .bot.n4{grid-template-columns:1fr 1fr;
 .lt .track{height:calc(18px*var(--k))}
 .lt .lr{font:calc(20px*var(--k)) var(--mono);color:#829baa;margin-top:calc(8px*var(--k));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pempty{flex:1;display:flex;align-items:center;justify-content:center;font:22px var(--mono);letter-spacing:2px;color:#5f7686;text-align:center;padding:12px}
+
+/* ---------- krivka: stupnice, bod posledni hodnoty ---------- */
+.chartbox{position:absolute;inset:0}
+.chartbox.scaled{left:calc(58px*var(--k));bottom:calc(26px*var(--k))}
+.chart{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.chart .grid{stroke:#24323d;stroke-width:1;vector-effect:non-scaling-stroke}
+.chart .area{fill:rgba(var(--rgb),.16)}
+.chart .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+/* Bod je HTML, ne SVG - v roztazene soustave by z kolecka byl oval. */
+.cdot{position:absolute;width:calc(14px*var(--k));height:calc(14px*var(--k));margin:calc(-7px*var(--k)) 0 0 calc(-7px*var(--k));
+ border-radius:50%;background:var(--accent);box-shadow:0 0 calc(14px*var(--k)) rgba(var(--rgb),.9)}
+.cy{position:absolute;right:100%;top:0;bottom:0;width:calc(54px*var(--k));pointer-events:none}
+.cy span{position:absolute;right:calc(8px*var(--k));transform:translateY(-50%);
+ font:calc(17px*var(--k)) var(--mono);color:#6f8798;letter-spacing:.5px;white-space:nowrap}
+.cx{position:absolute;left:0;right:0;top:100%;display:flex;justify-content:space-between;
+ font:calc(17px*var(--k)) var(--mono);color:#6f8798;letter-spacing:1px;padding-top:calc(5px*var(--k))}
+.spark .chartbox{inset:0}
+.spark .cdot{width:calc(9px*var(--k));height:calc(9px*var(--k));margin:calc(-4.5px*var(--k)) 0 0 calc(-4.5px*var(--k))}
+.spark .chart .grid{display:none}
 
 /* ---------- pruh upozorneni (misto zahlavi) ---------- */
 #alert{position:absolute;top:24px;left:32px;right:32px;height:84px;z-index:6;display:flex;align-items:center;gap:24px;
@@ -293,6 +305,73 @@ body.mode-ambient .bg,body.mode-ambient .scan{display:none}
 /* Na vysku se kruhy poskladaji po dvou - vedle sebe by nezbylo na cisla. */
 body.is-portrait #ambient .arow{--ak:.72;gap:36px 50px;max-width:96%}
 body.is-portrait #ambient .aclock{font-size:150px}
+
+/* ---------- zvetsena sekce ----------
+   Okno se rozbali z mista, kde sekce stoji. Zadny efekt navic: jen
+   prechod polohy a velikosti, aby bylo videt, co se zvetsilo. */
+#zoom{position:fixed;inset:0;z-index:85;display:none;align-items:center;justify-content:center;
+ padding:2.5vmin;background:#01050898;backdrop-filter:blur(3px)}
+body.zooming #zoom{display:flex}
+body.zooming #stage{filter:blur(2px) saturate(.7)}
+#zoom .zwin{position:relative;width:min(1600px,96vw);height:min(900px,92vh);
+ transition:transform .42s cubic-bezier(.16,.84,.34,1),opacity .3s;transform-origin:center}
+#zoom #zoomBody{position:absolute;inset:0;--k:1;display:flex}
+#zoom #zoomBody .mid{flex:1;min-width:0;--k:1}
+#zoom .zclose{position:absolute;top:-1px;right:-1px;z-index:2;width:66px;height:66px;
+ font-size:30px;color:#cfe4f2;background:#0b1b24e0;border:1px solid #2d5768;border-radius:0 4px 0 12px}
+#zoom .zclose:active{background:#16303d}
+/* Zvetsena sekce uz se nezvetsuje dal. */
+#zoom .card{border-radius:6px 28px 6px 6px}
+
+/* ---------- okno s ovladanim entity ---------- */
+#detail{position:fixed;inset:0;z-index:105;display:none;align-items:center;justify-content:center;
+ padding:3vmin;background:#010508b0;backdrop-filter:blur(3px)}
+body.detailing #detail{display:flex}
+.dwin{width:min(860px,94vw);max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+ background:linear-gradient(150deg,#0c1720,#050a0e);border:1px solid #2d5768;border-radius:6px 24px 6px 6px;
+ box-shadow:0 30px 80px #000a;animation:dwinIn .26s cubic-bezier(.2,.8,.3,1) both}
+@keyframes dwinIn{from{opacity:0;transform:translateY(26px) scale(.96)}to{opacity:1;transform:none}}
+.dhead{display:flex;align-items:center;gap:18px;padding:20px 18px 16px 24px;border-bottom:1px solid #1b2a35}
+.dnames{flex:1;min-width:0}
+.dnames b{display:block;font-size:30px;font-weight:700;letter-spacing:2px;color:#eaf4ff;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase}
+.dnames i{display:block;font:14px var(--mono);color:#6f8798;font-style:normal;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dval{flex:none;font:600 40px var(--display);color:var(--a1);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dbody{padding:20px 24px 26px}
+.dbtn{min-height:60px;padding:0 22px;font:17px/1 var(--display);letter-spacing:2px;text-transform:uppercase;
+ color:#cfe4f2;background:#0e1d27;border:1px solid #2d5768;border-radius:4px}
+.dbtn:active{background:#16303d}
+.dbtn.big{flex:1;min-height:76px;font-size:21px}
+.dbtn.on{color:#04121a;background:var(--a1);border-color:var(--a1)}
+.dbtn.off{color:#cfd9e0;background:#1b2730;border-color:#3b4b57}
+.dbtn.x{flex:none;width:56px;min-height:56px;padding:0;font-size:22px;border-radius:50%}
+.dbtn.rnd{width:84px;min-height:84px;font-size:36px;border-radius:50%}
+.drow{display:flex;gap:12px;margin-bottom:18px}
+.drow.wrap{flex-wrap:wrap}
+.dlbl{font:13px var(--mono);letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:6px 0 10px}
+.dslide{margin-bottom:20px}
+.dsl{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;
+ font:15px var(--mono);letter-spacing:1px;color:var(--muted)}
+.dsl b{font:600 26px var(--display);color:#eaf4ff}
+/* Posuvnik musi byt tlusty - na tabletu se trefuje prstem, ne mysi. */
+.dslide input[type=range]{width:100%;height:52px;appearance:none;-webkit-appearance:none;background:transparent}
+.dslide input[type=range]::-webkit-slider-runnable-track{height:22px;border-radius:11px;
+ background:linear-gradient(90deg,#123244,#36d8ff55);border:1px solid #2d5768}
+.dslide input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;
+ width:46px;height:46px;margin-top:-13px;border-radius:50%;background:var(--a1);border:3px solid #04121a;
+ box-shadow:0 0 16px #36d8ff70}
+.dslide.warm input[type=range]::-webkit-slider-runnable-track{background:linear-gradient(90deg,#ff9b3a,#cfe6ff)}
+.dslide.warm input[type=range]::-webkit-slider-thumb{background:#ffd7a8}
+.dsw{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
+.dsw i{display:block;height:58px;border-radius:6px;border:1px solid #ffffff22}
+.dsw i:active{outline:3px solid #fff8}
+.dtemp{display:flex;align-items:center;justify-content:center;gap:26px;margin-bottom:20px}
+.dtemp b{font:600 62px var(--display);color:#eaf4ff;font-variant-numeric:tabular-nums;min-width:200px;text-align:center}
+.dgraph{position:relative;height:190px;margin:18px 0 6px;--k:1;--accent:var(--a1);--rgb:54,216,255}
+.dnote{font:14px var(--mono);color:#6f8798;letter-spacing:1px;margin-top:14px}
+/* Dlazdice pod prstem pri dlouhem stisku - at je poznat, ze se neco deje. */
+.lt.held,.card.held{outline:2px solid rgba(var(--rgb),.5);outline-offset:-2px}
 
 /* ---------- prekryvy stavu ---------- */
 .overlay{position:fixed;inset:0;z-index:70;display:none;flex-direction:column;align-items:center;justify-content:center;padding:5vmin;text-align:center}

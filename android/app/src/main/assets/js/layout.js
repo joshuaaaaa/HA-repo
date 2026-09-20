@@ -44,7 +44,7 @@ var Layout = (function () {
 
   /** Prazdny panel - to, co uzivatel uvidi pred prvni upravou. */
   function empty() {
-    return { v: VERSION, title: '', subtitle: '', cards: [], panels: [],
+    return { v: VERSION, title: '', subtitle: '', weather: '', cards: [], panels: [],
              grid: { cols: 0, rows: 0 }, panelGrid: { cols: 0 },
              ambient: emptyAmbient(), alert: null, control: { screen: '', brightness: '' } };
   }
@@ -108,7 +108,8 @@ var Layout = (function () {
       unit: str(r.unit, ''),
       attribute: str(r.attribute, ''),
       decimals: (r.decimals === null || r.decimals === undefined || r.decimals === '') ? null : Math.max(0, Math.min(3, nOr(r.decimals, 0))),
-      tap: ['auto', 'none', 'toggle'].indexOf(r.tap) >= 0 ? r.tap : 'auto',
+      // auto = podle druhu entity, detail = okno s ovladanim
+      tap: ['auto', 'none', 'toggle', 'detail'].indexOf(r.tap) >= 0 ? r.tap : 'auto',
       // "bar: true" je starsi zapis (a zkratka v konfiguraci karty),
       // ktery znamena totez co view: bar.
       view: ITEM_VIEWS.indexOf(r.view) >= 0 ? r.view : (r.bar ? 'bar' : 'value'),
@@ -169,6 +170,9 @@ var Layout = (function () {
       v: VERSION,
       title: str(r.title, ''),
       subtitle: str(r.subtitle, ''),
+      // Pocasi v zahlavi - u panelu na zdi to je jedna z mala veci,
+      // kvuli kterym k nemu clovek opravdu dojde.
+      weather: str(r.weather, ''),
       cards: (Array.isArray(r.cards) ? r.cards : []).slice(0, MAX_CARDS).map(normCard),
       panels: (Array.isArray(r.panels) ? r.panels : []).slice(0, MAX_PANELS).map(normPanel),
       ambient: emptyAmbient(),
@@ -231,6 +235,7 @@ var Layout = (function () {
     }
     if (l.alert) add(l.alert.entity);
     if (l.control) { add(l.control.screen); add(l.control.brightness); }
+    if (l.weather) add(l.weather);
     return out;
   }
 

@@ -172,6 +172,7 @@
 
   window.panelPresence = function (phase) {
     if (Editor.isOpen()) return;            // pri uprave panelu se nic neprepina
+    if (phase !== 'active') { closeZoom(); if (Dialog.isOpen()) Dialog.close(); }
     if (phase === 'dim') {
       document.body.classList.add('oled-off');
       stopOrganism();
@@ -351,6 +352,8 @@
       },
       onChange: function (entityId, st, states) {
         if (view) view.refreshOne(entityId, states);
+        if (zoomView) zoomView.refreshOne(entityId, states);
+        Dialog.update(entityId);
         // Krivka roste ze stejnych zmen, ktere uz stejne chodi -
         // server se kvuli ni nemusi ptat casteji.
         if (history && st && history.push(entityId, st.state)) {
@@ -400,6 +403,7 @@
       history = new History.Store(function (msg) { return conn.request(msg); });
       history.onData = function (entity, series) {
         if (view) view.setHistory(entity, series);
+        if (zoomView) zoomView.setHistory(entity, series);
       };
     }
     var want = Layout.graphed(layout);
@@ -423,6 +427,8 @@
     var shown = Layout.ambientFallback(JSON.parse(JSON.stringify(layout)));
     view = Render.build(shown, document.getElementById('stage'), {
       onTap: onTap,
+      onDetail: openDetail,
+      onZoom: openZoom,
       onCog: openEditor
     });
     tick();
@@ -433,15 +439,83 @@
     if (history) { setupHistory(); view.redraw(history); }
   }
 
-  function onTap(entityId) {
+  function onTap(entityId, item) {
     if (window.Panel && Panel.tap) Panel.tap();
     if (window.Panel && Panel.activity) Panel.activity();
+    // Dlazdice nastavena na "Podrobnosti" otevre okno misto prepnuti.
+    if (item && item.tap === 'detail') { openDetail(entityId); return; }
     if (demo) { toast('Ukázka — nic se doopravdy nepřepíná.'); return; }
     if (!conn || conn.status !== 'ready') { toast('Bez spojení s Home Assistantem.'); return; }
     var st = conn.states[entityId];
     var svc = U.tapService(entityId, st ? st.state : '');
-    if (!svc) { toast('Tuhle entitu přepnout nejde.'); return; }
+    if (!svc) { openDetail(entityId); return; }
     conn.callService(svc.domain, svc.service, { entity_id: entityId });
+  }
+
+  /* ---- okno s ovladanim ---- */
+
+  function openDetail(entityId) {
+    if (window.Panel && Panel.tap) Panel.tap();
+    if (window.Panel && Panel.activity) Panel.activity();
+    Dialog.open(entityId, {
+      states: function (id) { return demo ? demoStates[id] : (conn ? conn.states[id] : null); },
+      history: function (id) { return history ? history.get(id) : null; },
+      call: function (domain, service, data) {
+        if (demo) { toast('Ukázka — nic se doopravdy nepřepíná.'); return; }
+        if (!conn || conn.status !== 'ready') { toast('Bez spojení s Home Assistantem.'); return; }
+        conn.callService(domain, service, data);
+      }
+    });
+  }
+
+  /* ---- zvetsena sekce ----
+     Okno se "rozbali" z mista, kde sekce stoji: nejdriv se posadi
+     presne na ni, pak se pusti prechod na celou plochu. Diky tomu je
+     videt, co se odkud zvetsilo. */
+
+  var zoomView = null;
+
+  function openZoom(card, sourceEl) {
+    if (Dialog.isOpen() || Editor.isOpen()) return;
+    if (window.Panel && Panel.activity) Panel.activity();
+    var host = document.getElementById('zoomBody');
+    var box = document.getElementById('zoom');
+    if (!host || !box) return;
+
+    closeZoom(true);
+    var only = Layout.normalize({ cards: [card], panels: [] });
+    zoomView = Render.build(only, host, {
+      onTap: onTap,
+      onDetail: openDetail,
+      zoomed: true,
+      noAmbient: true
+    });
+    if (conn && conn.states) zoomView.refresh(conn.states);
+    if (demo) zoomView.refresh(demoStates);
+    if (history) zoomView.redraw(history);
+
+    var from = sourceEl.getBoundingClientRect();
+    var to = box.getBoundingClientRect();
+    var sx = from.width / to.width, sy = from.height / to.height;
+    var dx = from.left + from.width / 2 - (to.left + to.width / 2);
+    var dy = from.top + from.height / 2 - (to.top + to.height / 2);
+
+    document.body.classList.add('zooming');
+    box.style.transition = 'none';
+    box.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
+    box.style.opacity = '0.4';
+    void box.offsetWidth;                       // vynutit prekresleni
+    box.style.transition = '';
+    box.style.transform = '';
+    box.style.opacity = '';
+    if (zoomView.scale) setTimeout(function () { zoomView.scale(); }, 60);
+  }
+
+  function closeZoom(silent) {
+    if (!silent) document.body.classList.remove('zooming');
+    zoomView = null;
+    var host = document.getElementById('zoomBody');
+    if (host && !silent) setTimeout(function () { if (!document.body.classList.contains('zooming')) host.innerHTML = ''; }, 400);
   }
 
   function openEditor() {
@@ -533,6 +607,16 @@
       else toast('Nastavení aplikace je dostupné jen v tabletu.');
     });
     document.getElementById('demoBtn').addEventListener('click', startDemo);
+    document.getElementById('zoomClose').addEventListener('click', function () { closeZoom(); });
+    // Stejne jako u okna s ovladanim: zavrit jen pri klepnuti, ktere
+    // zacalo i skoncilo na tmavem pozadi.
+    var zoomDownOutside = false;
+    var zoomEl = document.getElementById('zoom');
+    zoomEl.addEventListener('pointerdown', function (e) { zoomDownOutside = (e.target === zoomEl); });
+    zoomEl.addEventListener('click', function (e) {
+      if (e.target === zoomEl && zoomDownOutside) closeZoom();
+      zoomDownOutside = false;
+    });
     document.getElementById('downSettings').addEventListener('click', function () {
       if (window.Panel && Panel.openSettings) Panel.openSettings();
     });

@@ -9,7 +9,7 @@ V tomhle repozitáři jsou tři věci, které jdou používat každá zvlášť:
 |---|---|---|
 | **Karta pro Lovelace** | `custom:ha-panel-card` — stejné budíky uvnitř dashboardu Home Assistantu | do HA přes HACS nebo ručně |
 | **Balíček a blueprinty** | pomocníci pro ovládání tabletu a hotové automatizace | do konfigurace HA |
-| **Aplikace HA Panel** | Android aplikace pro tablet: celá obrazovka, buzení pohybem, vlastní editor entit | do tabletu (Android Studio) |
+| **Aplikace HA Panel** | Android aplikace pro tablet: celá obrazovka, buzení pohybem, ovládání světel včetně jasu a barvy, vlastní editor entit | do tabletu (Android Studio) |
 
 ![Panel](docs/dashboard.png)
 
@@ -45,6 +45,7 @@ type: custom:ha-panel-card
 title: DŮM                # prázdné = jen hodiny a stav
 subtitle: ''
 clock: true               # hodiny v záhlaví
+weather: weather.dum      # nepovinné: teplota a stav vedle hodin
 columns: 2                # kolik sekcí na řádek (0/vynechat = automaticky)
 rows: 2                   # kolik řad sekcí (0/vynechat = automaticky)
 panel_columns: 2          # kolik panelů na řádek
@@ -117,6 +118,8 @@ naměřenými hodnotami — krajní hodnoty jsou napsané u okraje grafu.
 
 **Klepnutí:** světlo, zásuvka, přepínač, scéna, skript, žaluzie, zámek a
 přehrávač se rovnou přepnou; u čidla se otevře obvyklé okno s podrobnostmi.
+**Dlouhý stisk** (a dlaždice s `tap: detail`) otevře okno Home Assistanta
+s plným ovládáním — jas, barva, poloha rolety.
 
 **Stupně (`levels`)** jsou to, co dělá panel čitelným přes pokoj: `tone` nese
 barvu, `label` slovo. Barva sama o sobě nestačí — přes pokoj splývá a část
@@ -198,6 +201,7 @@ node tests/hapanel-layout.cjs      # rozvržení a jeho kontrola
 node tests/hapanel-ws.cjs          # spojení s HA: přihlášení, výpadky, služby
 node tests/hapanel-history.cjs     # historie pro křivky
 node tests/card-browser.mjs        # karta v prohlížeči (potřebuje Playwright)
+node tests/control-browser.mjs     # ovládání, okno s jasem, zoom, stupnice
 ```
 
 Panel jde vyzkoušet i bez tabletu: naservíruj
