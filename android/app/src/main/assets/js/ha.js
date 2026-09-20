@@ -22,6 +22,7 @@ function HaConn(opts) {
   this.ws = null;
   this.seq = 1;
   this.pending = {};
+  this.subs = {};
   this.status = 'idle';
   this.tries = 0;
   this.timer = null;
@@ -84,6 +85,7 @@ HaConn.prototype.cleanup = function () {
     try { w.onclose = null; w.onmessage = null; w.onerror = null; w.close(); } catch (e) {}
   }
   this.pending = {};
+  this.subs = {};
 };
 
 /** Po vypadku se zkousi znovu - zpocatku rychle, pak uz v klidu. */
@@ -122,6 +124,41 @@ HaConn.prototype.request = function (msg) {
       delete self.pending[id];
       reject(new Error('server neodpověděl'));
     }, 20000);
+  });
+};
+
+/**
+ * Trvaly odber (predpoved pocasi, seznam ukolu). Home Assistant posila
+ * zmeny sam - panel se tedy neptá dokola. Vraci cislo odberu, kterym se
+ * da zrusit; po vypadku spojeni je treba se prihlasit znovu.
+ */
+HaConn.prototype.subscribe = function (msg, cb) {
+  if (this.status !== 'ready') return -1;
+  var id = this.send(msg);
+  if (id > 0) this.subs[id] = cb;
+  return id;
+};
+
+HaConn.prototype.unsubscribe = function (id) {
+  if (!this.subs[id]) return;
+  delete this.subs[id];
+  this.send({ type: 'unsubscribe_events', subscription: id });
+};
+
+/**
+ * Sluzba, ktera neco vraci (seznam udalosti v kalendari). Home Assistant
+ * to umi jen s priznakem return_response.
+ */
+HaConn.prototype.callWithResponse = function (domain, service, data, target) {
+  return this.request({
+    type: 'call_service',
+    domain: domain,
+    service: service,
+    service_data: data || {},
+    target: target || undefined,
+    return_response: true
+  }).then(function (result) {
+    return result && result.response ? result.response : null;
   });
 };
 
@@ -179,6 +216,11 @@ HaConn.prototype.onMessage = function (ev) {
         this.retry('server odmítl seznam stavů');
       }
     }
+    return;
+  }
+  // Odbery (predpoved, ukoly) chodi jako udalost s vlastnim cislem.
+  if (msg.type === 'event' && this.subs[msg.id]) {
+    try { this.subs[msg.id](msg.event); } catch (e) {}
     return;
   }
   if (msg.type === 'event' && msg.event && msg.event.event_type === 'state_changed') {

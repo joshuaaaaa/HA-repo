@@ -211,6 +211,54 @@ body.is-portrait .mid.n5 > *,body.is-portrait .mid.n5 > *:nth-child(n+4){grid-co
 .camw::after{content:'';position:absolute;left:0;right:0;bottom:0;height:calc(70px*var(--k));
  background:linear-gradient(transparent,#04080bcc);pointer-events:none}
 
+/* ---------- seznamy: predpoved, kalendar, ukoly ----------
+   Tri ruzna data, jeden tvar radku: vlevo kdy, uprostred co, vpravo
+   cislo. Pres pokoj se to pak cte stejne rychle jako budik. */
+.listw{flex:1;min-width:0;display:flex;flex-direction:column;height:100%;padding:calc(4px*var(--k)) 0 0}
+.listw .lhead{display:flex;align-items:baseline;gap:calc(12px*var(--k));flex:none;
+ padding-bottom:calc(10px*var(--k));border-bottom:1px solid rgba(var(--rgb),.18)}
+.listw .cap{font:calc(18px*var(--k)) var(--mono);letter-spacing:calc(4px*var(--k));color:#99b2c4;text-transform:uppercase}
+.listw .n{font:700 calc(72px*var(--k))/.9 var(--display);color:#d6e1e8;font-variant-numeric:tabular-nums}
+.listw .u{font:calc(22px*var(--k)) var(--mono);color:var(--accent)}
+.listw .st{font-size:calc(20px*var(--k));letter-spacing:1px;color:#9fb6c4;text-transform:uppercase}
+.listw .grow{flex:1}
+.listw .lsum{font:calc(19px*var(--k)) var(--mono);color:#7f9db1;white-space:nowrap}
+.listw .lrows{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;
+ gap:calc(4px*var(--k));padding-top:calc(8px*var(--k));overflow:hidden}
+/* Radky rostou, dokud je v sekci misto - malo radku tedy neznamena
+   prazdnou spodni polovinu okna. */
+.listw .lrow{flex:1 1 0;display:flex;align-items:center;gap:calc(16px*var(--k));min-width:0;
+ min-height:calc(46px*var(--k));max-height:calc(104px*var(--k));
+ padding:calc(6px*var(--k)) 0;border-bottom:1px solid #16222c}
+.listw .lrow:last-child{border-bottom:none}
+.listw .lday{flex:none;width:calc(66px*var(--k));font:700 calc(30px*var(--k)) var(--display);
+ letter-spacing:1px;color:var(--accent);text-transform:uppercase}
+.listw .lwhen{flex:none;min-width:calc(170px*var(--k));font:calc(25px*var(--k)) var(--mono);color:var(--accent);white-space:nowrap}
+.listw .lname{flex:1;min-width:0;font-size:calc(30px*var(--k));color:#d6e1e8;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.listw .ltemp{flex:none;display:flex;align-items:baseline;gap:calc(10px*var(--k));font-variant-numeric:tabular-nums}
+.listw .ltemp b{font:600 calc(38px*var(--k)) var(--display);color:#eaf4ff}
+.listw .ltemp i{font:calc(28px*var(--k)) var(--display);font-style:normal;color:#7f9db1}
+.listw .lrain{flex:none;width:calc(84px*var(--k));text-align:right;font:calc(22px*var(--k)) var(--mono);color:var(--a1)}
+/* Ukol se odskrtne klepnutim - jedine, co u seznamu na zdi clovek dela. */
+.listw .lbox{flex:none;width:calc(32px*var(--k));height:calc(32px*var(--k));
+ border:2px solid rgba(var(--rgb),.6);border-radius:4px}
+.listw .lrow.tapable:active{background:rgba(var(--rgb),.14)}
+.listw .lrow.done{opacity:.35}
+.listw .lrow.done .lbox{background:var(--accent)}
+.listw .lrow.done .lname{text-decoration:line-through}
+.listw .lwait{flex:1;display:flex;align-items:center;justify-content:center;
+ font:calc(20px*var(--k)) var(--mono);color:#5f7686;letter-spacing:2px}
+
+/* Nahled kamery v dlazdici panelu. */
+/* Dlazdice s kamerou ukazuje obraz, ne stav ("Klid") - ten by jen mátl. */
+.lt.camtile{display:flex;flex-direction:column}
+.lt.camtile .lv,.lt.camtile .lst{display:none}
+/* Pevna vyska: roztahujici se nahled by stlacil sekce nad sebou. */
+.camthumb{flex:none;height:calc(150px*var(--k));margin-top:calc(6px*var(--k));
+ background:#04080b;border:1px solid rgba(var(--rgb),.25);overflow:hidden}
+.camthumb img{width:100%;height:100%;object-fit:cover;display:block}
+
 /* ---------- spodni panely ---------- */
 .bot{display:grid;gap:16px;min-height:0;--k:1}
 .bot.n1{grid-template-columns:1fr}
@@ -395,6 +443,11 @@ body.detailing #detail{display:flex}
 .dsw i:active{outline:3px solid #fff8}
 .dtemp{display:flex;align-items:center;justify-content:center;gap:26px;margin-bottom:20px}
 .dtemp b{font:600 62px var(--display);color:#eaf4ff;font-variant-numeric:tabular-nums;min-width:200px;text-align:center}
+.dmedia{display:flex;align-items:center;gap:18px;margin-bottom:20px}
+.dmedia img{width:96px;height:96px;object-fit:cover;border-radius:6px;background:#0b1720}
+.dmtxt{min-width:0}
+.dmtxt b{display:block;font-size:22px;color:#eaf4ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dmtxt span{display:block;font:14px var(--mono);color:#7f9db1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dgraph{position:relative;height:190px;margin:18px 0 6px;--k:1;--accent:var(--a1);--rgb:54,216,255}
 .dnote{font:14px var(--mono);color:#6f8798;letter-spacing:1px;margin-top:14px}
 /* Dlazdice pod prstem pri dlouhem stisku - at je poznat, ze se neco deje. */

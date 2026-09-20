@@ -55,6 +55,7 @@ const bundle = [
   read(path.join(ASSETS, 'js/util.js')),
   read(path.join(ASSETS, 'js/layout.js')),
   read(path.join(ASSETS, 'js/history.js')),
+  read(path.join(ASSETS, 'js/feeds.js')),
   read(path.join(ASSETS, 'js/render.js')),
   read(path.join(ROOT, 'src/card/card.js')),
   '})();',

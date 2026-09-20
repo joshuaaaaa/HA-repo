@@ -18,8 +18,9 @@ var Layout = (function () {
        graph  - krivka za poslednich N hodin
        number - jen velke cislo
      Dlazdice a ukazatele znaji value / bar / graph. */
-  var CARD_VIEWS = ['gauge', 'bar', 'graph', 'number', 'camera'];
-  var ITEM_VIEWS = ['value', 'bar', 'graph'];
+  var CARD_VIEWS = ['gauge', 'bar', 'graph', 'number', 'camera',
+                    'forecast', 'calendar', 'todo'];
+  var ITEM_VIEWS = ['value', 'bar', 'graph', 'camera'];
 
   /* Kolik se toho vejde. Vic sekci = mensi okna, o tom rozhoduje uzivatel. */
   var MAX_CARDS = 6, MAX_PANELS = 4, MAX_ITEMS = 8, MAX_METERS = 4, MAX_TILES = 6;
@@ -70,7 +71,7 @@ var Layout = (function () {
   function newCard() {
     return {
       id: id('card'), name: 'Nová sekce', code: '', tone: 'cyan', view: 'gauge', hours: 6,
-      refresh: 10,
+      refresh: 10, count: 5, days: 7,
       dial: { entity: '', caption: '', unit: '', min: 0, max: 100, decimals: null, levels: [] },
       meters: [], tiles: []
     };
@@ -142,6 +143,10 @@ var Layout = (function () {
       hours: Math.max(1, Math.min(72, nOr(r.hours, 6))),
       // jak casto se obnovi snimek z kamery (s)
       refresh: Math.max(2, Math.min(120, nOr(r.refresh, 10))),
+      // kolik radku ma seznam (predpoved, kalendar, ukoly)
+      count: Math.max(1, Math.min(10, nOr(r.count, 5))),
+      // jak daleko dopredu se ctou udalosti v kalendari (dny)
+      days: Math.max(1, Math.min(14, nOr(r.days, 7))),
       dial: {
         entity: str(d.entity, ''),
         caption: str(d.caption, ''),
@@ -291,6 +296,20 @@ var Layout = (function () {
     return out;
   }
 
+  /**
+   * Sekce, ktere nestoji na stavu entity, ale na datech navic:
+   * predpoved pocasi, kalendar a seznam ukolu.
+   */
+  function feeds(l) {
+    var out = [];
+    allCards(l).forEach(function (c) {
+      if (['forecast', 'calendar', 'todo'].indexOf(c.view) < 0) return;
+      if (!c.dial.entity) return;
+      out.push({ kind: c.view, entity: c.dial.entity, count: c.count, days: c.days });
+    });
+    return out;
+  }
+
   /** Entity, ktere potrebuji historii (krivku), i s delkou okna v hodinach. */
   function graphed(l) {
     var out = [];
@@ -424,7 +443,8 @@ var Layout = (function () {
   return {
     VERSION: VERSION, TONES: TONES, ambientFallback: ambientFallback,
     empty: empty, newCard: newCard, newPanel: newPanel, newItem: newItem,
-    normalize: normalize, entities: entities, graphed: graphed, isEmpty: isEmpty,
+    normalize: normalize, entities: entities, graphed: graphed, feeds: feeds,
+    isEmpty: isEmpty,
     fromStates: fromStates, id: id, newPage: newPage,
     allCards: allCards, allPanels: allPanels,
     CARD_VIEWS: CARD_VIEWS, ITEM_VIEWS: ITEM_VIEWS,

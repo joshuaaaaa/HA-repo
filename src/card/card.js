@@ -91,6 +91,9 @@ class HaPanelCard extends HTMLElement {
     this._timer = null;
     this._ro = null;
     this._history = null;
+    this._feeds = null;
+    this._unsub = {};
+    this._subSeq = 0;
   }
 
   /* ---------- Lovelace rozhraní ---------- */
@@ -167,6 +170,11 @@ class HaPanelCard extends HTMLElement {
       // vlastni okno Home Assistanta - v dashboardu je doma a umi vic
       // nez cokoli, co by karta nakreslila sama.
       onDetail: function (entityId) { self._moreInfo(entityId); },
+      onTodo: function (entity, row) {
+        if (!self._hass) return;
+        self._hass.callService('todo', 'update_item',
+          { entity_id: entity, item: row.uid || row.name, status: 'completed' });
+      },
       // Kamera: obrazek z Home Assistanta je na stejnem puvodu jako
       // dashboard, takze staci adresa z entity_picture.
       states: function (id) { return self._hass ? self._hass.states[id] : null; }
@@ -188,6 +196,7 @@ class HaPanelCard extends HTMLElement {
 
     if (this._hass) this._view.refresh(this._hass.states);
     this._startHistory();
+    this._startFeeds();
     this._fit();
 
     if (!this._ro && typeof ResizeObserver !== 'undefined') {
@@ -228,6 +237,49 @@ class HaPanelCard extends HTMLElement {
   /* ---------- krivky ----------
      Prubeh hodnot si karta vyzada pres hass.callWS - stejnym prikazem,
      jakym ho cte historie v Home Assistantu. */
+  /* Predpoved, kalendar a ukoly - v karte pres spojeni, ktere uz
+     Home Assistant ma otevrene. */
+  _startFeeds() {
+    var self = this;
+    var want = Layout.feeds(this._layout);
+    if (!want.length) {
+      if (this._feeds) { this._feeds.stop(); this._feeds = null; }
+      return;
+    }
+    if (!this._feeds) {
+      this._feeds = new Feeds.Store({
+        subscribe: function (msg, cb) {
+          if (!self._hass || !self._hass.connection) return -1;
+          var key = ++self._subSeq;
+          self._hass.connection.subscribeMessage(cb, msg).then(function (off) {
+            self._unsub[key] = off;
+          }, function () {});
+          return key;
+        },
+        unsubscribe: function (key) {
+          var off = self._unsub[key];
+          if (off) { try { off(); } catch (e) {} delete self._unsub[key]; }
+        },
+        events: function (entity, days) {
+          if (!self._hass) return Promise.reject(new Error('bez hass'));
+          var d = new Date();
+          function p(n) { return n < 10 ? '0' + n : '' + n; }
+          var start = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+            + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':00';
+          return self._hass.callWS({
+            type: 'call_service', domain: 'calendar', service: 'get_events',
+            service_data: { start_date_time: start, duration: { days: days } },
+            target: { entity_id: entity }, return_response: true
+          }).then(function (r) { return r && r.response ? r.response : null; });
+        }
+      });
+      this._feeds.onData = function (kind, entity, data) {
+        if (self._view) self._view.setFeed(kind, entity, data);
+      };
+    }
+    this._feeds.set(want);
+  }
+
   _startHistory() {
     var self = this;
     var want = Layout.graphed(this._layout);
@@ -280,6 +332,7 @@ class HaPanelCard extends HTMLElement {
     if (this._timer) { clearInterval(this._timer); this._timer = null; }
     if (this._ro) { this._ro.disconnect(); this._ro = null; }
     if (this._history) this._history.stop();
+    if (this._feeds) this._feeds.stop();
     if (this._view && this._view.destroy) this._view.destroy();
   }
 

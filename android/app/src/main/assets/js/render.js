@@ -276,6 +276,8 @@ var Render = (function () {
     var graphs = [];
     // Opakovane obnovovani snimku z kamer; pri prestavbe se rusi.
     var timers = [];
+    // Sekce, ktere plni data mimo stavy entit (predpoved, kalendar, ukoly).
+    var feeds = [];
     // Prvek, na kterem se prepinaji stavove tridy. V aplikaci je to <body>,
     // v karte pro Lovelace obal karty - jinam se karta sahat nesmi.
     var rootEl = ctx.root || document.body;
@@ -381,14 +383,14 @@ var Render = (function () {
       var mid = el('div', 'mid n' + Math.min(6, page.cards.length));
       applyGrid(mid, page.grid, page.cards.length, 3);
       page.cards.forEach(function (card, idx) {
-        mid.appendChild(buildCard(card, idx, bind, ctx, graphs, timers));
+        mid.appendChild(buildCard(card, idx, bind, ctx, graphs, timers, feeds));
       });
       if (page.cards.length) pe.appendChild(mid);
 
       var bot = el('div', 'bot n' + Math.min(4, page.panels.length));
       applyGrid(bot, page.panelGrid, page.panels.length, 4);
       page.panels.forEach(function (p, idx) {
-        bot.appendChild(buildPanel(p, idx, bind, ctx, graphs));
+        bot.appendChild(buildPanel(p, idx, bind, ctx, graphs, timers));
       });
       if (page.panels.length) pe.appendChild(bot);
 
@@ -537,6 +539,14 @@ var Render = (function () {
       });
     }
 
+    /** Nova data odberu (predpoved, kalendar, ukoly). */
+    function setFeed(kind, entity, data) {
+      for (var i = 0; i < feeds.length; i++) {
+        if (feeds[i].kind !== kind || feeds[i].entity !== entity) continue;
+        try { feeds[i].draw(data); } catch (e) {}
+      }
+    }
+
     /** Nova historie jedne entity - prekresli vsechny jeji krivky. */
     function setHistory(entityId, series) {
       for (var i = 0; i < graphs.length; i++) {
@@ -558,6 +568,8 @@ var Render = (function () {
       refresh: refresh,
       refreshOne: refreshOne,
       setHistory: setHistory,
+      setFeed: setFeed,
+      feeds: feeds,
       redraw: redraw,
       scale: scale,
       badge: badge,
@@ -576,7 +588,7 @@ var Render = (function () {
      Sekce ukazuje jednu hlavni hodnotu - a uzivatel si vybira, jak:
      budikem, sloupcem, krivkou nebo holym cislem. Vsechny ctyri mluvi
      stejne: velke cislo, jednotka a slovo o stavu. */
-  function buildCard(card, idx, bind, ctx, graphs, timers) {
+  function buildCard(card, idx, bind, ctx, graphs, timers, feeds) {
     var sec = el('section', 'pane card anim' + toneClass(card.tone));
     sec.style.animationDelay = (0.06 + idx * 0.08) + 's';
 
@@ -608,7 +620,7 @@ var Render = (function () {
     // uprostred, ne nalepena vlevo s prazdnem vedle sebe.
     var solo = !(card.meters && card.meters.length) && !(card.tiles && card.tiles.length);
     var body = el('div', 'cbody' + (solo ? ' solo' : ''));
-    body.appendChild(buildVisual(card, bind, accent, graphs, ctx, timers));
+    body.appendChild(buildVisual(card, bind, accent, graphs, ctx, timers, feeds));
 
     var right = el('div', 'cright');
     (card.meters || []).forEach(function (m) {
@@ -625,7 +637,7 @@ var Render = (function () {
   }
 
   /* ---------- hlavni hodnota sekce ---------- */
-  function buildVisual(card, bind, accent, graphs, ctx, timers) {
+  function buildVisual(card, bind, accent, graphs, ctx, timers, feeds) {
     var d = card.dial;
     var view = card.view || 'gauge';
     var nEl = el('div', 'n', '--');
@@ -723,6 +735,83 @@ var Render = (function () {
         }
       });
 
+    } else if (view === 'forecast' || view === 'calendar' || view === 'todo') {
+      // Tri seznamy, ktere se lisi jen radkem: predpoved, kalendar, ukoly.
+      wrap = el('div', 'listw v-' + view);
+      var lhead = el('div', 'lhead');
+      lhead.appendChild(capEl);
+      lhead.appendChild(el('span', 'grow'));
+      var lsum = el('span', 'lsum', '');
+      lhead.appendChild(lsum);
+      var rows = el('div', 'lrows');
+      var lempty = el('div', 'lwait', 'čekám na data');
+      wrap.appendChild(lhead);
+      wrap.appendChild(rows);
+      wrap.appendChild(lempty);
+      if (!capEl.textContent) {
+        capEl.textContent = view === 'forecast' ? 'Předpověď'
+          : (view === 'calendar' ? 'Kalendář' : 'Seznam');
+      }
+
+      feeds.push({
+        kind: view, entity: d.entity,
+        draw: function (data) {
+          rows.innerHTML = '';
+          var list = view === 'forecast' ? Feeds.forecastRows(data, card.count)
+            : (view === 'calendar' ? Feeds.eventRows(data, card.count)
+                                   : Feeds.todoRows(data, card.count));
+          lempty.style.display = list.length ? 'none' : '';
+          if (!list.length && data) lempty.textContent = view === 'todo' ? 'nic nezbývá' : 'nic dalšího';
+          lsum.textContent = view === 'todo' && data ? list.length + ' položek' : '';
+
+          list.forEach(function (r) {
+            var row = el('div', 'lrow');
+            if (view === 'forecast') {
+              row.appendChild(el('b', 'lday', r.day));
+              row.appendChild(el('span', 'lname', r.word));
+              var t = el('span', 'ltemp');
+              t.appendChild(el('b', '', isNaN(r.hi) ? '--' : U.fmt(r.hi, 0) + '°'));
+              t.appendChild(el('i', '', isNaN(r.lo) ? '' : U.fmt(r.lo, 0) + '°'));
+              row.appendChild(t);
+              if (!isNaN(r.rain) && r.rain > 0) {
+                row.appendChild(el('span', 'lrain', U.fmt(r.rain, 0) + ' %'));
+              }
+            } else if (view === 'calendar') {
+              row.appendChild(el('b', 'lwhen', r.when));
+              row.appendChild(el('span', 'lname', r.name));
+            } else {
+              var box = el('i', 'lbox');
+              row.appendChild(box);
+              row.appendChild(el('span', 'lname', r.name));
+              // Klepnuti odskrtne polozku - to je to jedine, co u seznamu
+              // na zdi clovek dela.
+              row.classList.add('tapable');
+              row.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (ctx.onTodo) ctx.onTodo(d.entity, r);
+                row.classList.add('done');
+              });
+            }
+            rows.appendChild(row);
+          });
+        }
+      });
+
+      // Stav entity doplni cislo do zahlavi (teplota, pocet ukolu).
+      bind(d.entity, function (st) {
+        if (view !== 'forecast') return;
+        var w = U.weather(st);
+        nEl.textContent = w && !isNaN(w.temp) ? U.fmt(w.temp, 1) : '--';
+        uEl.textContent = w ? w.unit : '';
+        stEl.textContent = w ? w.word : '';
+        stEl.style.color = '#9fb6c4';
+      });
+      if (view === 'forecast') {
+        lhead.insertBefore(stEl, lsum);
+        lhead.insertBefore(uEl, stEl);
+        lhead.insertBefore(nEl, uEl);
+      }
+
     } else if (view === 'number') {
       wrap = el('div', 'numw');
       wrap.appendChild(capEl); wrap.appendChild(nEl); wrap.appendChild(uEl); wrap.appendChild(stEl);
@@ -743,7 +832,10 @@ var Render = (function () {
       setVisual = function (ratio, color) { setSeg(segGroup, ratio, color); };
     }
 
-    bind(d.entity, function (st) {
+    // Seznamy si cislo v zahlavi plni samy (teplota, pocet polozek) -
+    // spolecna vazba by jim ho prepsala stavem entity ("Partlycloudy").
+    var listView = ['forecast', 'calendar', 'todo'].indexOf(view) >= 0;
+    if (!listView) bind(d.entity, function (st) {
       var disp = U.display(st, d);
       nEl.textContent = disp.text;
       nEl.classList.toggle('txt', isNaN(disp.n));
@@ -825,6 +917,33 @@ var Render = (function () {
     return chart;
   }
 
+  /**
+   * Nahled kamery v dlazdici. Stejne jako u sekce jen snimek, ktery se
+   * sam obnovuje - klepnutim se zvetsi.
+   */
+  function addCamTile(host, item, ctx, timers) {
+    var box = el('div', 'camthumb');
+    var img = el('img', '');
+    img.alt = item.name || 'kamera';
+    box.appendChild(img);
+    host.appendChild(box);
+
+    function refresh() {
+      if (document.hidden || document.body.classList.contains('oled-off')) return;
+      var st = ctx.states ? ctx.states(item.entity) : null;
+      var pic = st && st.attributes ? st.attributes.entity_picture : '';
+      if (!pic) return;
+      var base = (ctx.baseUrl || '').replace(/\/+$/, '');
+      var url = /^https?:/.test(pic) ? pic : base + pic;
+      img.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now();
+    }
+    refresh();
+    var timer = setInterval(refresh, Math.max(5, item.hours || 10) * 1000);
+    if (timers) timers.push(timer);
+    img.refresh = refresh;
+    return img;
+  }
+
   /* ---------- mala dlazdice v sekci ---------- */
   function buildTile(item, bind, graphs) {
     var t = el('div', 'tile');
@@ -849,7 +968,7 @@ var Render = (function () {
   }
 
   /* ---------- spodni panel ---------- */
-  function buildPanel(panel, idx, bind, ctx, graphs) {
+  function buildPanel(panel, idx, bind, ctx, graphs, timers) {
     var accent = ACCENT[panel.tone] || ACCENT.green;
     var sec = el('section', 'pane panel anim' + toneClass(panel.tone));
     sec.style.animationDelay = (0.2 + idx * 0.08) + 's';
@@ -868,13 +987,13 @@ var Render = (function () {
       row.appendChild(el('div', 'pempty', 'zatím prázdné'));
     }
     panel.items.forEach(function (item) {
-      row.appendChild(buildPanelItem(item, bind, ctx, accent, graphs));
+      row.appendChild(buildPanelItem(item, bind, ctx, accent, graphs, timers));
     });
     sec.appendChild(row);
     return sec;
   }
 
-  function buildPanelItem(item, bind, ctx, accent, graphs) {
+  function buildPanelItem(item, bind, ctx, accent, graphs, timers) {
     // Znacka "tohle jde prepnout" patri jen tomu, co se opravdu prepina.
     // Karta v Lovelace navic necha klepnout na cokoli - u cidla se otevre
     // podrobnost, jak je v Home Assistantu zvykem.
@@ -889,7 +1008,7 @@ var Render = (function () {
     var lv = el('div', 'lv', '--');
     t.appendChild(lk); t.appendChild(lv);
 
-    var fill = null;
+    var fill = null, camImg = null;
     if (item.view === 'bar') {
       var track = el('div', 'track');
       fill = el('div', 'fill');
@@ -897,6 +1016,9 @@ var Render = (function () {
       t.appendChild(track);
     } else if (item.view === 'graph') {
       addSpark(t, item, graphs);
+    } else if (item.view === 'camera') {
+      t.classList.add('camtile');
+      camImg = addCamTile(t, item, ctx, timers);
     }
     var note = el('div', 'lr', item.entity ? '' : 'bez entity');
     t.appendChild(note);
@@ -928,6 +1050,9 @@ var Render = (function () {
         fill.style.width = U.pct(d.n, item.min, item.max) + '%';
         fill.style.background = has ? level.color : (accent || ACCENT.green);
       }
+      // Prvni snimek az ve chvili, kdy je znamy stav kamery - adresa
+      // se bere z jeho atributu.
+      if (camImg && st && !camImg.src) camImg.refresh();
       var on = st && (st.state === 'on' || st.state === 'open' || st.state === 'playing'
                    || st.state === 'unlocked' || st.state === 'cleaning');
       t.classList.toggle('on', !!on);

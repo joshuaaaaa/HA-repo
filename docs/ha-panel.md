@@ -10,7 +10,7 @@ nezůstal žádný název ani značka — jen hodiny, hodnoty a stav spojení.
 Vzhled je záměrně stejný jako u původní přístrojové desky: velká čísla
 čitelná přes pokoj, stav vždy **barvou i slovem**, černé pozadí kvůli OLED.
 
-![Panel](dashboard.png)
+![Panel](panel.png)
 *(rozvržení je takové, obsah si určuješ sám)*
 
 ---
@@ -25,6 +25,9 @@ Vzhled je záměrně stejný jako u původní přístrojové desky: velká čís
   desetinná místa a **stupně** (do kolika platí které slovo a barva).
 - **Ovládání klepnutím**: světla, zásuvky, scény, žaluzie, zámky a přepínače
   jdou z panelu rovnou přepnout.
+- **Stránky**: až pět, přejíždí se mezi nimi prstem.
+- **Kamery, předpověď, kalendář a úkoly** rovnou v panelu — bez vlastní
+  aplikace a bez otevírání Home Assistanta.
 - **Klidový režim**, když před tabletem nikdo není: velké hodiny, dvě
   hodnoty a pomalu plující obraz kvůli vypalování displeje.
 - **Probuzení pohybem** — přední kamera hlídá, jestli se něco hnulo, a
@@ -173,6 +176,15 @@ Totéž má i spodní řada: na záložce *Panely* se nastavuje *Panelů na řá
   | **Graf (křivka)** | průběh za posledních 1–72 hodin se stupnicemi: hodnoty vlevo na kulatých číslech, časy dole |
   | **Jen číslo** | velké číslo bez rozsahu — pro veličiny, kde žádný rozsah nedává smysl |
   | **Kamera (snímek)** | obraz z kamery, který se sám obnovuje (výchozí po 10 s) |
+  | **Předpověď počasí** | několik dní dopředu z entity `weather.*` — den, ikona, nejvyšší a nejnižší teplota |
+  | **Kalendář** | nejbližší události z jednoho nebo více kalendářů („dnes 18:30“, „zítra“, jinak datum) |
+  | **Seznam úkolů** | nesplněné úkoly ze seznamu; klepnutím na řádek se úkol odškrtne |
+
+U předpovědi, kalendáře i seznamu úkolů se nastavuje, **kolik řádků** se
+vejde do okna; u předpovědi navíc **na kolik dní** dopředu. Hodnoty si panel
+nechává posílat z Home Assistanta sám (předpověď a úkoly přihlášením k
+odběru, kalendář dotazem každých deset minut), takže se drží živé, aniž by
+se server ptal dokola.
 
 - **Entita budíku** — hlavní hodnota. Po výběru se rozsah, popisek i stupně
   doplní podle druhu čidla (teplota, vlhkost, baterie, CO₂, prach…).
@@ -186,7 +198,8 @@ Totéž má i spodní řada: na záložce *Panely* se nastavuje *Panelů na řá
 - **Dlaždice** — až šest malých hodnot pod ukazateli.
 
 U ukazatele i dlaždice se vybírá **Zobrazení**: *Jen hodnota*, *Pruh*
-(s vlastním rozsahem) nebo *Křivka* (malý graf pod číslem).
+(s vlastním rozsahem), *Křivka* (malý graf pod číslem) nebo *Kamera*
+(malý náhled z `camera.*` místo čísla).
 
 ### Panely
 Řada dlaždic dole, až osm v jednom panelu, **čtyři panely vedle sebe**.
@@ -213,10 +226,13 @@ Co okno nabídne, se řídí druhem entity:
 | **Ventilátor** | Zapnout/Vypnout a otáčky |
 | **Žaluzie / roleta** | Otevřít, Stop, Zavřít a poloha v procentech |
 | **Zámek** | Zamknout / Odemknout |
-| **Přehrávač** | Přehrát/Pauza, hlasitost, předchozí a další |
+| **Přehrávač** | obal alba a název toho, co hraje, Přehrát/Pauza, hlasitost, předchozí a další |
 | **Termostat** | Cílová teplota po půl stupních a režimy (Topit, Chladit, Auto…) |
 | **Scéna, skript** | Spustit |
 | **Vysavač** | Uklidit, Do doku |
+| **Výběr** (`select`, `input_select`) | seznam možností, klepnutím se přepne |
+| **Číslo** (`number`, `input_number`) | posuvník v rozsahu entity i s krokem |
+| **Alarm** | Zapnout doma, Zapnout mimo dům, Vypnout (vypnutí chce kód, když ho ústředna žádá) |
 | **Čidlo** | hodnota, křivka za posledních 6 hodin a kdy se naposledy změnila |
 
 Posuvníky posílají hodnotu **až po puštění prstu** — jinak by každé
@@ -225,7 +241,9 @@ klepnutím mimo ně.
 
 ### Kamera
 
-Sekce se zobrazením **Kamera** ukazuje snímek z entity `camera.*`. Panel
+Sekce se zobrazením **Kamera** ukazuje snímek z entity `camera.*`; totéž
+se vejde i do dlaždice v panelu jako malý náhled. Klepnutím se náhled
+zvětší přes celou obrazovku. Panel
 schválně netahá proud videa — na levném tabletu by ujídal baterku i paměť
 — ale snímek si podle nastavení sám obnovuje (2 až 120 s). Adresu i s
 přístupovým tokenem posílá Home Assistant v atributu entity, takže se nic
@@ -472,6 +490,7 @@ android/
             ├─ layout.js           rozvržení a jeho kontrola
             ├─ ha.js               WebSocket klient Home Assistanta
             ├─ history.js          průběh hodnot pro křivky
+            ├─ feeds.js            předpověď, kalendář a úkoly
             ├─ dialog.js           okno s ovládáním entity
             ├─ render.js           stavba obrazovky a vazby na entity
             ├─ editor.js           editor a výběr entit
@@ -487,4 +506,6 @@ node tests/hapanel-ws.cjs
 node tests/hapanel-history.cjs
 node tests/control-browser.mjs   # ovládání v prohlížeči (potřebuje Playwright)
 node tests/pages-browser.mjs     # stránky, přejíždění, kamera, zvonek
+node tests/feeds-browser.mjs     # předpověď, kalendář, úkoly, kamery
+node tests/card-browser.mjs      # karta do Lovelace
 ```

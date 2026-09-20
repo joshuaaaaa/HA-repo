@@ -18,6 +18,7 @@
   var view = null;          // vysledek Render.build
   var conn = null;
   var history = null;       // prubeh hodnot pro krivky
+  var feeds = null;         // predpoved, kalendar, ukoly
   var demo = false;
 
   /* ================= nastaveni ================= */
@@ -341,6 +342,7 @@
         applyControl(states, true);
         checkDoorbell(states, true);
         setupHistory();
+        setupFeeds();
         if (Layout.isEmpty(layout)) {
           // Prvni spusteni: rovnou neco ukazat, at panel nezustane prazdny.
           layout = Layout.fromStates(states);
@@ -402,6 +404,47 @@
   /* ---- krivky ----
      Historii si rekne jen to, co ji opravdu kresli; zbytek panelu bezi
      dal ze zivych stavu. */
+  /* ---- predpoved, kalendar, ukoly ---- */
+
+  function setupFeeds() {
+    if (!conn) return;
+    if (!feeds) {
+      feeds = new Feeds.Store({
+        subscribe: function (msg, cb) { return conn.subscribe(msg, cb); },
+        unsubscribe: function (id) { conn.unsubscribe(id); },
+        events: function (entity, days) {
+          var start = new Date();
+          return conn.callWithResponse('calendar', 'get_events',
+            { start_date_time: local(start), duration: { days: days } },
+            { entity_id: entity });
+        }
+      });
+      feeds.onData = function (kind, entity, data) {
+        if (view) view.setFeed(kind, entity, data);
+        if (zoomView) zoomView.setFeed(kind, entity, data);
+      };
+    }
+    var want = Layout.feeds(layout);
+    feeds.set(want);
+    if (!want.length) feeds.stop();
+  }
+
+  /** Home Assistant chce mistni cas bez pasma: "2026-09-20 15:04:00". */
+  function local(d) {
+    function p(n) { return n < 10 ? '0' + n : '' + n; }
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+      + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  }
+
+  /** Odskrtnuti ukolu ze seznamu. */
+  function completeTodo(entity, row) {
+    if (window.Panel && Panel.tap) Panel.tap();
+    if (demo) { toast('Ukázka — nic se doopravdy neodškrtává.'); return; }
+    if (!conn || conn.status !== 'ready') { toast('Bez spojení s Home Assistantem.'); return; }
+    conn.callService('todo', 'update_item',
+      { entity_id: entity, item: row.uid || row.name, status: 'completed' });
+  }
+
   function setupHistory() {
     if (!conn) return;
     if (!history) {
@@ -439,6 +482,7 @@
       onZoom: openZoom,
       onCog: openEditor,
       onPage: goPage,
+      onTodo: completeTodo,
       baseUrl: cfg.baseUrl,
       states: function (id) { return demo ? demoStates[id] : (conn ? conn.states[id] : null); }
     });
@@ -449,6 +493,14 @@
     if (conn && conn.states) view.refresh(conn.states);
     if (demo) { view.refresh(demoStates); demoHistory(); }
     if (history) { setupHistory(); view.redraw(history); }
+    if (feeds) {
+      setupFeeds();
+      // Co uz mame, hned vykreslit - odber prijde az pri dalsi zmene.
+      Layout.feeds(layout).forEach(function (w) {
+        var data = feeds.get(w.kind, w.entity);
+        if (data) view.setFeed(w.kind, w.entity, data);
+      });
+    }
   }
 
   function onTap(entityId, item) {
@@ -470,6 +522,7 @@
     if (window.Panel && Panel.tap) Panel.tap();
     if (window.Panel && Panel.activity) Panel.activity();
     Dialog.open(entityId, {
+      baseUrl: cfg.baseUrl,
       states: function (id) { return demo ? demoStates[id] : (conn ? conn.states[id] : null); },
       history: function (id) { return history ? history.get(id) : null; },
       call: function (domain, service, data) {
@@ -591,6 +644,12 @@
     if (conn && conn.states) zoomView.refresh(conn.states);
     if (demo) zoomView.refresh(demoStates);
     if (history) zoomView.redraw(history);
+    if (feeds) {
+      zoomView.feeds.forEach(function (f) {
+        var data = feeds.get(f.kind, f.entity);
+        if (data) zoomView.setFeed(f.kind, f.entity, data);
+      });
+    }
 
     var to = box.getBoundingClientRect();
     // Bez zdrojoveho prvku (napr. zvonek) se okno jen vynori ze stredu.

@@ -165,6 +165,24 @@ var Dialog = (function () {
     }
 
     if (domain === 'media_player') {
+      // Obal a nazev skladby - podle nej clovek pozna, co hraje.
+      var pic = attr(st, 'entity_picture', '');
+      var title = attr(st, 'media_title', '');
+      if (pic || title) {
+        var mp = el('div', 'dmedia');
+        if (pic && ctx.baseUrl !== undefined) {
+          var art = el('img', '');
+          art.alt = '';
+          art.src = /^https?:/.test(pic) ? pic : (ctx.baseUrl || '') + pic;
+          mp.appendChild(art);
+        }
+        var mt = el('div', 'dmtxt');
+        mt.appendChild(el('b', '', title || U.name(st, '')));
+        var artist = attr(st, 'media_artist', '') || attr(st, 'app_name', '');
+        if (artist) mt.appendChild(el('span', '', artist));
+        mp.appendChild(mt);
+        body.appendChild(mp);
+      }
       var vol = Math.round(attr(st, 'volume_level', 0) * 100);
       body.appendChild(slider('Hlasitost', vol, 0, 100, ' %', function (v) {
         call('media_player', 'volume_set', { entity_id: id, volume_level: v / 100 });
@@ -194,6 +212,48 @@ var Dialog = (function () {
           }));
         });
         body.appendChild(mr);
+      }
+    }
+
+    /* Vyber z moznosti - vstup, rezim praöky, zdroj prehravace. */
+    if (domain === 'select' || domain === 'input_select') {
+      var opts = attr(st, 'options', []) || [];
+      if (opts.length) {
+        var or = el('div', 'drow wrap');
+        opts.slice(0, 12).forEach(function (o) {
+          or.appendChild(btn(o, st && st.state === o ? 'on' : '', function () {
+            call(domain, 'select_option', { entity_id: id, option: o });
+          }));
+        });
+        body.appendChild(or);
+      }
+    }
+
+    /* Cislo - napr. cilova teplota bojleru nebo hlasitost zvonku. */
+    if (domain === 'number' || domain === 'input_number') {
+      var min = attr(st, 'min', 0), max = attr(st, 'max', 100);
+      var cur = U.num(st && st.state);
+      body.appendChild(slider(U.name(st, '') || 'Hodnota', isNaN(cur) ? min : cur, min, max,
+        ' ' + attr(st, 'unit_of_measurement', ''), function (v) {
+          call(domain, 'set_value', { entity_id: id, value: v });
+        }));
+    }
+
+    /* Alarm: zajistit doma, zajistit pri odchodu, odjistit. Kod se tu
+       zamerne nezadava - panel na zdi neni misto na tajemstvi. */
+    if (domain === 'alarm_control_panel') {
+      var ar = el('div', 'drow wrap');
+      var modes = [['alarm_arm_home', 'Zajistit doma'], ['alarm_arm_away', 'Zajistit'],
+                   ['alarm_disarm', 'Odjistit']];
+      modes.forEach(function (m) {
+        ar.appendChild(btn(m[1], '', function () {
+          call('alarm_control_panel', m[0], { entity_id: id });
+        }));
+      });
+      body.appendChild(ar);
+      if (attr(st, 'code_format', null)) {
+        body.appendChild(el('div', 'dnote',
+          'Alarm chce kód — ten se zadává v Home Assistantu, ne na panelu.'));
       }
     }
 

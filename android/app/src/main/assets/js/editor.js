@@ -24,8 +24,11 @@ var Editor = (function () {
   var TAP_NAMES = { auto: 'Podle druhu entity', none: 'Nic (jen ukazuje)',
                     toggle: 'Přepnout', detail: 'Okno s ovládáním' };
   var CARD_VIEW_NAMES = { gauge: 'Budík', bar: 'Sloupec', graph: 'Graf (křivka)',
-                          number: 'Jen číslo', camera: 'Kamera (snímek)' };
-  var ITEM_VIEW_NAMES = { value: 'Jen hodnota', bar: 'Pruh', graph: 'Křivka' };
+                          number: 'Jen číslo', camera: 'Kamera (snímek)',
+                          forecast: 'Předpověď počasí', calendar: 'Kalendář',
+                          todo: 'Seznam úkolů' };
+  var ITEM_VIEW_NAMES = { value: 'Jen hodnota', bar: 'Pruh', graph: 'Křivka',
+                          camera: 'Náhled kamery' };
   var HOURS = { 1: '1 hodina', 3: '3 hodiny', 6: '6 hodin', 12: '12 hodin',
                 24: '24 hodin', 48: '2 dny', 72: '3 dny' };
   var COLS = { 0: 'Automaticky', 1: '1 na řádek', 2: '2 na řádek', 3: '3 na řádek', 4: '4 na řádek' };
@@ -249,11 +252,24 @@ var Editor = (function () {
         viewRow.push(field('Obnovovat po (s)', card.refresh, function (v) {
           card.refresh = parseInt(v, 10) || 10;
         }, 'number'));
+      } else if (card.view === 'forecast' || card.view === 'calendar' || card.view === 'todo') {
+        viewRow.push(field('Kolik řádků', card.count, function (v) {
+          card.count = parseInt(v, 10) || 5;
+        }, 'number'));
+        if (card.view === 'calendar') {
+          viewRow.push(field('Dopředu (dní)', card.days, function (v) {
+            card.days = parseInt(v, 10) || 7;
+          }, 'number'));
+        }
       }
       inner.appendChild(row.apply(null, viewRow));
 
       inner.appendChild(el('div', 'ehint', 'Hlavní hodnota na budíku:'));
-      inner.appendChild(row(entityField(card.view === 'camera' ? 'Entita kamery' : 'Entita budíku',
+      var entLabel = card.view === 'camera' ? 'Entita kamery'
+        : card.view === 'forecast' ? 'Entita počasí'
+        : card.view === 'calendar' ? 'Kalendář'
+        : card.view === 'todo' ? 'Seznam úkolů' : 'Entita budíku';
+      inner.appendChild(row(entityField(entLabel,
         card.dial.entity, function (e) {
         card.dial.entity = e;
         if (e && states[e]) {
@@ -287,8 +303,21 @@ var Editor = (function () {
         inner.appendChild(el('div', 'ehint',
           'Sekce ukazuje snímek z kamery, který se sám obnovuje. Proud videa '
           + 'panel schválně netahá — na tabletu by jen ujídal baterku a paměť.'));
+      } else if (card.view === 'forecast') {
+        inner.appendChild(el('div', 'ehint',
+          'Předpověď na další dny si panel vyžádá přímo od entity počasí '
+          + '(weather.*). Ukazuje den, stav, nejvyšší a nejnižší teplotu a '
+          + 'pravděpodobnost srážek.'));
+      } else if (card.view === 'calendar') {
+        inner.appendChild(el('div', 'ehint',
+          'Nejbližší události z kalendáře Home Assistanta (calendar.*). '
+          + 'Co už skončilo, se neukazuje.'));
+      } else if (card.view === 'todo') {
+        inner.appendChild(el('div', 'ehint',
+          'Seznam úkolů nebo nákupu (todo.*). Klepnutím na řádek se položka '
+          + 'odškrtne — v Home Assistantu i všude jinde.'));
       }
-      if (card.view !== 'camera') {
+      if (['camera', 'forecast', 'calendar', 'todo'].indexOf(card.view) < 0) {
         inner.appendChild(levelsEditor(card.dial, states[card.dial.entity]));
 
         inner.appendChild(el('div', 'ehint', 'Ukazatele vedle hlavní hodnoty (nejvýš čtyři):'));
@@ -582,6 +611,10 @@ var Editor = (function () {
         viewSel.push(select('Křivka za', String(item.hours), HOURS, function (v) {
           item.hours = parseInt(v, 10);
         }));
+      } else if (item.view === 'camera') {
+        viewSel.push(field('Obnovovat po (s)', item.hours, function (v) {
+          item.hours = parseInt(v, 10) || 10;
+        }, 'number'));
       }
       grow.appendChild(row.apply(null, viewSel));
       grow.appendChild(levelsEditor(item, states[item.entity]));
