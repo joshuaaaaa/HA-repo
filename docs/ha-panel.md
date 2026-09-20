@@ -212,6 +212,9 @@ U každé dlaždice se nastavuje **Zobrazení** a co má dělat **klepnutí**:
 - *Přepnout* — vynutí `toggle`.
 - *Okno s ovládáním* — rovnou otevře okno (níž).
 
+U sekce stačí klepnutí: rozbalí se přes celou obrazovku a ovládání je
+rovnou pod ní (viz *Zvětšení sekce*).
+
 **Dlouhý stisk (0,6 s) otevře okno s ovládáním u každé dlaždice i sekce**,
 ať je klepnutí nastavené jakkoli — stejný zvyk jako v Home Assistantu.
 
@@ -262,10 +265,18 @@ pohybem.
 
 ### Zvětšení sekce
 
-**Klepnutí na sekci** ji rozbalí přes celou obrazovku — z místa, kde
-stojí, takže je vidět, co se zvětšilo. Ve velkém běží dál živě (včetně
-křivky) a zavírá se křížkem nebo klepnutím vedle. Hodí se na graf, ze
-kterého chceš přečíst podrobnosti.
+**Klepnutí na sekci** ji rozbalí přes celou obrazovku — okno vyjede
+z místa, kde sekce stojí, a při zavření se tam zase vrátí, takže je
+pořád vidět, co se odkud zvětšilo. Ve velkém běží dál živě (včetně
+křivky) a zavírá se křížkem nebo klepnutím vedle.
+
+Když je hlavní hodnota sekce **něco, co jde ovládat** (světlo, zásuvka,
+roleta, termostat…), objeví se pod zvětšenou sekcí rovnou **ovládání** —
+stejné, jaké má okno s podrobnostmi: zapnout, vypnout, jas, barva.
+U čidla zůstane pruh prázdný, protože není co přepínat.
+
+Ve zvětšené sekci schválně není záhlaví s hodinami a odznakem spojení —
+to je vidět na panelu pod ní.
 
 ### Klid
 Co je vidět v klidovém režimu: **až čtyři velké kruhy** s hodnotami a až tři
@@ -507,5 +518,6 @@ node tests/hapanel-history.cjs
 node tests/control-browser.mjs   # ovládání v prohlížeči (potřebuje Playwright)
 node tests/pages-browser.mjs     # stránky, přejíždění, kamera, zvonek
 node tests/feeds-browser.mjs     # předpověď, kalendář, úkoly, kamery
+node tests/zoom-browser.mjs      # zvětšení sekce, ovládání ve velkém, písmo editoru
 node tests/card-browser.mjs      # karta do Lovelace
 ```

@@ -212,6 +212,7 @@ node tests/card-browser.mjs        # karta proti falešnému hass
 node tests/control-browser.mjs     # ovládání, okno s jasem, zoom, stupnice
 node tests/pages-browser.mjs       # stránky, přejíždění prstem, zvonek
 node tests/feeds-browser.mjs       # předpověď, kalendář, úkoly, kamery
+node tests/zoom-browser.mjs        # zvětšení sekce a ovládání ve velkém
 ```
 
 Panel jde vyzkoušet i bez tabletu: naservíruj `android/app/src/main/assets/`

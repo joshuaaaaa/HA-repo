@@ -387,8 +387,15 @@ body.is-portrait #ambient .aclock{font-size:150px}
 body.zooming #zoom{display:flex}
 body.zooming #stage{filter:blur(2px) saturate(.7)}
 #zoom .zwin{position:relative;width:min(1600px,96vw);height:min(900px,92vh);
- transition:transform .42s cubic-bezier(.16,.84,.34,1),opacity .3s;transform-origin:center}
-#zoom #zoomBody{position:absolute;inset:0;--k:1;display:flex}
+ display:flex;flex-direction:column;
+ transition:transform .5s cubic-bezier(.17,.86,.28,1),opacity .34s ease-out;
+ transform-origin:center;will-change:transform}
+#zoom #zoomBody{position:relative;flex:1;min-height:0;--k:1;display:flex}
+/* Ovladani pod zvetsenou sekci - svetlo se da rozsvitit rovnou ve velkem. */
+#zoom .zctrl{flex:none;max-height:38%;overflow-y:auto;-webkit-overflow-scrolling:touch;
+ padding:16px 22px 4px;background:#060f16f0;border-top:1px solid #1b2a35}
+#zoom .zctrl:empty{display:none}
+#zoom .zctrl .drow:last-child,#zoom .zctrl .dslide:last-child{margin-bottom:12px}
 #zoom #zoomBody .mid{flex:1;min-width:0;--k:1}
 #zoom #zoomBody .pages,#zoom #zoomBody .page{flex:1;min-width:0;display:flex}
 #zoom #zoomBody .camw{min-height:60vh}
@@ -397,6 +404,8 @@ body.zooming #stage{filter:blur(2px) saturate(.7)}
 #zoom .zclose:active{background:#16303d}
 /* Zvetsena sekce uz se nezvetsuje dal. */
 #zoom .card{border-radius:6px 28px 6px 6px}
+/* Misto pro krizek, at nelezi na nazvu entity v rohu sekce. */
+#zoom #zoomBody .card > .head{padding-right:78px}
 
 /* ---------- okno s ovladanim entity ---------- */
 #detail{position:fixed;inset:0;z-index:105;display:none;align-items:center;justify-content:center;

@@ -357,6 +357,7 @@
       onChange: function (entityId, st, states) {
         if (view) view.refreshOne(entityId, states);
         if (zoomView) zoomView.refreshOne(entityId, states);
+        refreshZoomControls(entityId);
         Dialog.update(entityId);
         // Krivka roste ze stejnych zmen, ktere uz stejne chodi -
         // server se kvuli ni nemusi ptat casteji.
@@ -622,13 +623,15 @@
      presne na ni, pak se pusti prechod na celou plochu. Diky tomu je
      videt, co se odkud zvetsilo. */
 
-  var zoomView = null;
+  var zoomView = null, zoomEntity = null, zoomBack = null;
 
   function openZoom(card, sourceEl) {
     if (Dialog.isOpen() || Editor.isOpen()) return;
     if (window.Panel && Panel.activity) Panel.activity();
     var host = document.getElementById('zoomBody');
-    var box = document.getElementById('zoom');
+    // Rozbaluje se okno uvnitr prekryvu, ne cely prekryv: prechod je na
+    // .zwin, takze na #zoom by se nic neanimovalo a okno by naskocilo.
+    var box = document.querySelector('#zoom .zwin');
     if (!host || !box) return;
 
     closeZoom(true);
@@ -651,33 +654,94 @@
       });
     }
 
+    buildZoomControls(card);
+
+    // Odkud se okno rozbaluje: zmeri se az kdyz je prekryv videt, jinak
+    // ma skryty prvek nulovou velikost a zvetseni by nikam nevedlo.
+    var from = sourceEl ? sourceEl.getBoundingClientRect() : null;
+    document.body.classList.add('zooming');
     var to = box.getBoundingClientRect();
     // Bez zdrojoveho prvku (napr. zvonek) se okno jen vynori ze stredu.
-    var from = sourceEl ? sourceEl.getBoundingClientRect()
-      : { left: to.left + to.width * 0.1, top: to.top + to.height * 0.1,
-          width: to.width * 0.8, height: to.height * 0.8 };
-    var sx = from.width / to.width, sy = from.height / to.height;
+    if (!from) {
+      from = { left: to.left + to.width * 0.18, top: to.top + to.height * 0.18,
+               width: to.width * 0.64, height: to.height * 0.64 };
+    }
+    var sx = Math.max(0.05, from.width / to.width);
+    var sy = Math.max(0.05, from.height / to.height);
     var dx = from.left + from.width / 2 - (to.left + to.width / 2);
     var dy = from.top + from.height / 2 - (to.top + to.height / 2);
 
-    document.body.classList.add('zooming');
+    zoomBack = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
     box.style.transition = 'none';
-    box.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
-    box.style.opacity = '0.4';
+    box.style.transform = zoomBack;
+    box.style.opacity = '0.25';
     void box.offsetWidth;                       // vynutit prekresleni
-    box.style.transition = '';
-    box.style.transform = '';
-    box.style.opacity = '';
+    // Dva snimky navic: bez nich stihne prohlizec slozit oboji do
+    // jednoho prekresleni a okno naskoci bez prechodu.
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        box.style.transition = '';
+        box.style.transform = '';
+        box.style.opacity = '';
+      });
+    });
     if (zoomView.scale) setTimeout(function () { zoomView.scale(); }, 60);
+  }
+
+  /* Ovladani pod zvetsenou sekci: u svetla vypinac, jas i barvy - to same,
+     co ukazuje okno s podrobnostmi. U cidla zustane pruh prazdny. */
+  function buildZoomControls(card) {
+    var strip = document.getElementById('zoomCtrl');
+    if (!strip) return;
+    strip.innerHTML = '';
+    zoomEntity = null;
+    var id = card && card.dial ? card.dial.entity : null;
+    if (!id || !Dialog.hasControls(id)) return;
+    zoomEntity = id;
+    Dialog.controls(id, strip, {
+      states: function (e) { return demo ? demoStates[e] : (conn ? conn.states[e] : null); },
+      call: function (domain, service, data) {
+        if (window.Panel && Panel.tap) Panel.tap();
+        if (demo) { toast('Ukázka — nic se doopravdy nepřepíná.'); return; }
+        if (!conn || conn.status !== 'ready') { toast('Bez spojení s Home Assistantem.'); return; }
+        conn.callService(domain, service, data);
+      }
+    });
+  }
+
+  /* Po zmene stavu se pruh prekresli, at vypinac i jas rikaji pravdu -
+     ale ne behem tahani posuvniku, jinak by prst "utekl". */
+  function refreshZoomControls(entityId) {
+    if (!zoomEntity || entityId !== zoomEntity) return;
+    var strip = document.getElementById('zoomCtrl');
+    if (!strip || strip.querySelector('input[type=range]:active')) return;
+    buildZoomControls({ dial: { entity: zoomEntity } });
   }
 
   function closeZoom(silent) {
     clearTimeout(doorbellTimer);
-    if (!silent) document.body.classList.remove('zooming');
+    zoomEntity = null;
     if (zoomView && zoomView.destroy) zoomView.destroy();
     zoomView = null;
     var host = document.getElementById('zoomBody');
-    if (host && !silent) setTimeout(function () { if (!document.body.classList.contains('zooming')) host.innerHTML = ''; }, 400);
+    var strip = document.getElementById('zoomCtrl');
+    var box = document.querySelector('#zoom .zwin');
+    if (silent) { zoomBack = null; return; }
+
+    // Zaviraci pohyb je zrcadlem otevreni: okno se sesune zpatky tam,
+    // odkud vyjelo, aby bylo videt, kam se vratilo.
+    if (box && zoomBack) {
+      box.style.transform = zoomBack;
+      box.style.opacity = '0';
+    }
+    zoomBack = null;
+    setTimeout(function () {
+      document.body.classList.remove('zooming');
+      if (box) { box.style.transition = 'none'; box.style.transform = ''; box.style.opacity = ''; }
+      if (host) host.innerHTML = '';
+      if (strip) strip.innerHTML = '';
+      if (box) { void box.offsetWidth; box.style.transition = ''; }
+    }, box && box.style.transform ? 300 : 0);
   }
 
   function openEditor() {

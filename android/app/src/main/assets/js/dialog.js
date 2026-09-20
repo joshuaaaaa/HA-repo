@@ -84,7 +84,13 @@ var Dialog = (function () {
 
   /* ---------- ovladani podle druhu entity ---------- */
 
-  function bodyFor(st, id, body) {
+  function bodyFor(st, id, body, cx) {
+    // Ovladaci prvky se kresli i mimo okno (do zvetsene sekce), proto si
+    // bodyFor nese vlastni kontext a nesaha na ten, ktery patri oknu.
+    var call = function (domain, service, data) {
+      var c = cx || ctx;
+      if (c && c.call) c.call(domain, service, data);
+    };
     var domain = U.domain(id);
     var on = st && (st.state === 'on' || st.state === 'open' || st.state === 'playing'
                  || st.state === 'unlocked' || st.state === 'cleaning' || st.state === 'heat'
@@ -197,10 +203,10 @@ var Dialog = (function () {
       var target = attr(st, 'temperature', null);
       if (target !== null) {
         var t = el('div', 'dtemp');
-        t.appendChild(btn('−', 'rnd', function () { setTemp(id, st, -0.5); }));
+        t.appendChild(btn('−', 'rnd', function () { setTemp(id, st, -0.5, call); }));
         var tv = el('b', '', U.fmt(target, 1) + ' °C');
         t.appendChild(tv);
-        t.appendChild(btn('+', 'rnd', function () { setTemp(id, st, 0.5); }));
+        t.appendChild(btn('+', 'rnd', function () { setTemp(id, st, 0.5, call); }));
         body.appendChild(t);
       }
       var modes = attr(st, 'hvac_modes', []) || [];
@@ -272,7 +278,7 @@ var Dialog = (function () {
     }
   }
 
-  function setTemp(id, st, delta) {
+  function setTemp(id, st, delta, call) {
     var cur = attr(st, 'temperature', 20);
     var step = attr(st, 'target_temp_step', 0.5) || 0.5;
     var min = attr(st, 'min_temp', 5), max = attr(st, 'max_temp', 35);
@@ -328,7 +334,7 @@ var Dialog = (function () {
     win.appendChild(head);
 
     var body = el('div', 'dbody');
-    bodyFor(st, current, body);
+    bodyFor(st, current, body, ctx);
 
     // Krivka u vseho, co ma cislo - i u svetla (jas) je videt, kdy se
     // naposledy svitilo.
@@ -366,7 +372,30 @@ var Dialog = (function () {
 
   function isOpen() { return document.body.classList.contains('detailing'); }
 
-  return { open: open, close: close, isOpen: isOpen, update: update, SWATCHES: SWATCHES };
+  /**
+   * Vykresli ovladaci prvky entity do libovolneho mista - pouziva to
+   * zvetsena sekce, aby se svetlo dalo rozsvitit rovnou ve velkem.
+   * Vraci true, kdyz se neco vykreslilo (cidlo nema co ovladat).
+   */
+  function controls(entityId, host, context) {
+    if (!entityId || !host) return false;
+    host.innerHTML = '';
+    var st = context && context.states ? context.states(entityId) : null;
+    bodyFor(st, entityId, host, context);
+    return host.childNodes.length > 0;
+  }
+
+  /** Ma tahle entita vubec co ovladat? Cidlo se jen ukazuje. */
+  function hasControls(entityId) {
+    return CONTROLLABLE.indexOf(U.domain(entityId || '')) >= 0;
+  }
+
+  var CONTROLLABLE = ['light', 'switch', 'input_boolean', 'fan', 'siren', 'humidifier',
+    'media_player', 'cover', 'lock', 'climate', 'scene', 'script', 'vacuum',
+    'select', 'input_select', 'number', 'input_number', 'alarm_control_panel'];
+
+  return { open: open, close: close, isOpen: isOpen, update: update,
+           controls: controls, hasControls: hasControls, SWATCHES: SWATCHES };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = Dialog;

@@ -335,7 +335,10 @@ var Render = (function () {
       cog.addEventListener('click', function () { ctx.onCog(); });
       header.appendChild(cog);
     }
-    host.appendChild(header);
+    // Ve zvetsene sekci zahlavi nepatri: hodiny, odznak spojeni i ozubene
+    // kolo uz jsou vidleti na panelu pod nim a odznak by tu navic zamrzl
+    // na "Spojuji" (zvetsena sekce se prekresluje jen jednou).
+    if (!ctx.zoomed) host.appendChild(header);
 
     /* ---------- pruh upozorneni ---------- */
     var alertBar = el('div', '');
@@ -344,7 +347,7 @@ var Render = (function () {
       + '<div class="at"><div class="af"></div></div>'
       + '<div class="ap"><span class="apv">0</span><small>%</small></div>'
       + '<div class="am">—</div>';
-    host.appendChild(alertBar);
+    if (!ctx.zoomed) host.appendChild(alertBar);
 
     if (layout.alert && layout.alert.entity) {
       var aName = alertBar.querySelector('.alx');
