@@ -42,7 +42,20 @@ await page.evaluate(() => {
   const st = (id, state, attributes = {}) => [id, { entity_id: id, state: String(state), attributes, last_changed: now }];
   window.__calls = [];
   window.__more = [];
+  window.__ws = [];
   window.hass = {
+    callWS: (msg) => {
+      window.__ws.push(msg.type);
+      if (msg.type !== 'history/history_during_period') return Promise.reject(new Error('neznámý dotaz'));
+      const out = {};
+      const t1 = Date.now() / 1000;
+      msg.entity_ids.forEach(id => {
+        const pts = [];
+        for (let i = 60; i >= 0; i--) pts.push({ s: String((20 + Math.sin(i / 6) * 3).toFixed(1)), lu: t1 - i * 300 });
+        out[id] = pts;
+      });
+      return Promise.resolve(out);
+    },
     states: Object.fromEntries([
       st('sensor.obyvak', 22.4, { friendly_name: 'Obývák', device_class: 'temperature', unit_of_measurement: '°C' }),
       st('sensor.vlhkost', 47, { friendly_name: 'Vlhkost', device_class: 'humidity', unit_of_measurement: '%' }),
@@ -61,6 +74,9 @@ await page.evaluate(() => {
       name: 'OBÝVÁK', code: 'T1', tone: 'cyan', entity: 'sensor.obyvak',
       meters: [{ entity: 'sensor.vlhkost', name: 'Vlhkost' }],
       tiles: [{ entity: 'sensor.co2', name: 'CO₂' }]
+    }, {
+      name: 'VENKU', code: 'T2', tone: 'amber', view: 'graph', hours: 12,
+      entity: 'sensor.obyvak'
     }],
     panels: [{ name: 'Dům', tone: 'amber', items: [
       { entity: 'light.kuchyne', name: 'Kuchyně' },
@@ -81,6 +97,16 @@ assert.equal(await text('.gv .n'), '22,4', 'budík ukazuje hodnotu z hass');
 assert.equal(await text('.gv .st'), 'Příjemno', 'stupeň se doplnil podle druhu čidla');
 assert.equal(await text('.gv .cap'), 'Teplota');
 assert.equal(await text('.meter .v'), '47 %', 'ukazatel vedle budíku');
+
+// druhá sekce kreslí křivku z historie, o kterou si sama řekla
+assert.ok((await page.evaluate(() => window.__ws)).includes('history/history_during_period'),
+  'karta si vyžádá historii');
+assert.ok(await page.evaluate(() => {
+  const d = document.querySelector('ha-panel-card').shadowRoot.querySelector('.graphw .line');
+  return !!d && d.getAttribute('d').length > 50;
+}), 'křivka má body');
+assert.equal(await page.evaluate(() => document.querySelector('ha-panel-card').shadowRoot
+  .querySelectorAll('.card').length), 2, 'obě sekce se vykreslily');
 assert.equal(await text('.tile .v'), '1340ppm', 'dlaždice: hodnota a jednotka z Home Assistanta');
 assert.ok((await text('.lt .lv')).startsWith('Vypnuto'), 'světlo mluví slovem, ne stavem "off"');
 

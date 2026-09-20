@@ -21,6 +21,10 @@ var Editor = (function () {
   var TONE_NAMES = { cyan: 'Modrá', amber: 'Oranžová', green: 'Zelená', violet: 'Fialová', red: 'Červená' };
   var LEVEL_NAMES = { good: 'V pořádku', warning: 'Zvýšené', serious: 'Vysoké', critical: 'Kritické', info: 'Informace', idle: 'Neutrální' };
   var TAP_NAMES = { auto: 'Podle druhu entity', none: 'Nic (jen ukazuje)', toggle: 'Přepnout' };
+  var CARD_VIEW_NAMES = { gauge: 'Budík', bar: 'Sloupec', graph: 'Graf (křivka)', number: 'Jen číslo' };
+  var ITEM_VIEW_NAMES = { value: 'Jen hodnota', bar: 'Pruh', graph: 'Křivka' };
+  var HOURS = { 1: '1 hodina', 3: '3 hodiny', 6: '6 hodin', 12: '12 hodin',
+                24: '24 hodin', 48: '2 dny', 72: '3 dny' };
 
   /* ---------- drobne stavebni dily ---------- */
 
@@ -115,7 +119,9 @@ var Editor = (function () {
   function pageCards() {
     var page = el('div', 'epage' + (tab === 'cards' ? ' on' : ''));
     page.appendChild(el('div', 'ehint',
-      'Sekce je velký budík s hodnotou uprostřed a ukazateli vedle. Panel unese dvě.'));
+      'Sekce je hlavní hodnota s ukazateli vedle. Zobrazit ji jde budíkem, '
+      + 'sloupcem, křivkou nebo jen velkým číslem. Panel unese šest sekcí — '
+      + 'čím víc jich je, tím menší okna, o tom rozhoduješ ty.'));
 
     draft.cards.forEach(function (card, idx) {
       var block = el('div', 'eblock');
@@ -134,6 +140,15 @@ var Editor = (function () {
         field('Zkratka (2 znaky)', card.code, function (v) { card.code = v.slice(0, 4); }),
         select('Barva', card.tone, TONE_NAMES, function (v) { card.tone = v; render(); })
       ));
+      var viewRow = [select('Zobrazení', card.view, CARD_VIEW_NAMES, function (v) {
+        card.view = v; render();
+      })];
+      if (card.view === 'graph') {
+        viewRow.push(select('Křivka za', String(card.hours), HOURS, function (v) {
+          card.hours = parseInt(v, 10);
+        }));
+      }
+      inner.appendChild(row.apply(null, viewRow));
 
       inner.appendChild(el('div', 'ehint', 'Hlavní hodnota na budíku:'));
       inner.appendChild(row(entityField('Entita budíku', card.dial.entity, function (e) {
@@ -154,13 +169,21 @@ var Editor = (function () {
           card.dial.decimals = v === '' ? null : parseInt(v, 10);
         }, 'number')
       ));
-      inner.appendChild(row(
-        field('Budík od', card.dial.min, function (v) { card.dial.min = parseFloat(v); }, 'number'),
-        field('Budík do', card.dial.max, function (v) { card.dial.max = parseFloat(v); }, 'number')
-      ));
+      if (card.view === 'gauge' || card.view === 'bar') {
+        inner.appendChild(row(
+          field(card.view === 'bar' ? 'Sloupec od' : 'Budík od', card.dial.min,
+                function (v) { card.dial.min = parseFloat(v); }, 'number'),
+          field(card.view === 'bar' ? 'Sloupec do' : 'Budík do', card.dial.max,
+                function (v) { card.dial.max = parseFloat(v); }, 'number')
+        ));
+      } else if (card.view === 'graph') {
+        inner.appendChild(el('div', 'ehint',
+          'Svislý rozsah křivky se řídí naměřenými hodnotami — krajní hodnoty '
+          + 'jsou napsané u okraje grafu.'));
+      }
       inner.appendChild(levelsEditor(card.dial, states[card.dial.entity]));
 
-      inner.appendChild(el('div', 'ehint', 'Ukazatele s pruhem vedle budíku (nejvýš čtyři):'));
+      inner.appendChild(el('div', 'ehint', 'Ukazatele vedle hlavní hodnoty (nejvýš čtyři):'));
       inner.appendChild(itemList(card.meters, { bar: true, max: 4 }));
 
       inner.appendChild(el('div', 'ehint', 'Malé dlaždice pod ukazateli (nejvýš šest):'));
@@ -170,7 +193,7 @@ var Editor = (function () {
       page.appendChild(block);
     });
 
-    if (draft.cards.length < 2) {
+    if (draft.cards.length < Layout.MAX_CARDS) {
       page.appendChild(btn('+ Přidat sekci', 'ghost', function () {
         draft.cards.push(Layout.newCard()); render();
       }));
@@ -181,7 +204,8 @@ var Editor = (function () {
   function pagePanels() {
     var page = el('div', 'epage' + (tab === 'panels' ? ' on' : ''));
     page.appendChild(el('div', 'ehint',
-      'Panel je řada dlaždic dole. Světla a zásuvky jdou klepnutím rovnou přepnout.'));
+      'Panel je řada dlaždic dole; vejdou se čtyři panely vedle sebe. '
+      + 'Světla a zásuvky jdou klepnutím rovnou přepnout.'));
 
     draft.panels.forEach(function (p, idx) {
       var block = el('div', 'eblock');
@@ -202,7 +226,7 @@ var Editor = (function () {
       page.appendChild(block);
     });
 
-    if (draft.panels.length < 2) {
+    if (draft.panels.length < Layout.MAX_PANELS) {
       page.appendChild(btn('+ Přidat panel', 'ghost', function () {
         draft.panels.push(Layout.newPanel()); render();
       }));
@@ -362,7 +386,7 @@ var Editor = (function () {
           if (e && states[e]) {
             var s = U.suggest(states[e]);
             if (!item.name) item.name = U.name(states[e], '');
-            if (item.bar) { item.min = s.min; item.max = s.max; }
+            if (item.view === 'bar') { item.min = s.min; item.max = s.max; }
             if (!item.levels.length) item.levels = s.levels;
           }
         })
@@ -377,14 +401,18 @@ var Editor = (function () {
       }
       grow.appendChild(row.apply(null, f));
 
-      var barSel = select('Pruh', item.bar ? 'ano' : 'ne', { ne: 'Bez pruhu', ano: 'S pruhem' },
-        function (v) { item.bar = (v === 'ano'); render(); });
-      var bar = [barSel];
-      if (item.bar) {
-        bar.push(field('Pruh od', item.min, function (v) { item.min = parseFloat(v); }, 'number'));
-        bar.push(field('Pruh do', item.max, function (v) { item.max = parseFloat(v); }, 'number'));
+      var viewSel = [select('Zobrazení', item.view, ITEM_VIEW_NAMES, function (v) {
+        item.view = v; render();
+      })];
+      if (item.view === 'bar') {
+        viewSel.push(field('Pruh od', item.min, function (v) { item.min = parseFloat(v); }, 'number'));
+        viewSel.push(field('Pruh do', item.max, function (v) { item.max = parseFloat(v); }, 'number'));
+      } else if (item.view === 'graph') {
+        viewSel.push(select('Křivka za', String(item.hours), HOURS, function (v) {
+          item.hours = parseInt(v, 10);
+        }));
       }
-      grow.appendChild(row.apply(null, bar));
+      grow.appendChild(row.apply(null, viewSel));
       grow.appendChild(levelsEditor(item, states[item.entity]));
       it.appendChild(grow);
 
@@ -395,7 +423,7 @@ var Editor = (function () {
     if (!opts.max || list.length < opts.max) {
       box.appendChild(btn('+ Přidat', 'ghost sm', function () {
         var item = Layout.newItem('');
-        if (opts.bar) item.bar = true;
+        if (opts.bar) item.view = 'bar';
         list.push(item);
         render();
       }));

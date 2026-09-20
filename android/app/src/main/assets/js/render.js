@@ -39,6 +39,68 @@ var Render = (function () {
     }
   }
 
+  /* ---------- krivka ----------
+     Kresli se do SVG s pevnou soustavou 0-100 v obou smerech, ktera se
+     roztahne na plochu. Cary proto maji non-scaling-stroke (v CSS) a
+     popisky jsou HTML vedle SVG - roztazene pismo by bylo necitelne. */
+  var NS = 'http://www.w3.org/2000/svg';
+
+  function svgEl(name, attrs) {
+    var e = document.createElementNS(NS, name);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function makeChart() {
+    var svg = svgEl('svg', { 'class': 'chart', viewBox: '0 0 100 100',
+                             preserveAspectRatio: 'none' });
+    [25, 50, 75].forEach(function (y) {
+      svg.appendChild(svgEl('line', { 'class': 'grid', x1: 0, x2: 100, y1: y, y2: y }));
+    });
+    var area = svgEl('path', { 'class': 'area', d: '' });
+    var line = svgEl('path', { 'class': 'line', d: '' });
+    var dot = svgEl('circle', { 'class': 'dot', cx: -10, cy: -10, r: 2.2 });
+    svg.appendChild(area); svg.appendChild(line); svg.appendChild(dot);
+
+    /** series = [{t,v}], vraci {lo,hi} skutecneho rozsahu (pro popisky) */
+    function draw(series, hours) {
+      if (!series || series.length < 2) {
+        area.setAttribute('d', ''); line.setAttribute('d', '');
+        dot.setAttribute('cx', -10);
+        return null;
+      }
+      var t1 = Date.now(), t0 = t1 - (hours || 6) * 3600000;
+      var lo = Infinity, hi = -Infinity;
+      series.forEach(function (p) { if (p.v < lo) lo = p.v; if (p.v > hi) hi = p.v; });
+      if (hi - lo < 1e-6) { hi = lo + 1; lo = lo - 1; }
+      var pad = (hi - lo) * 0.08;
+      var LO = lo - pad, HI = hi + pad;
+
+      var d = '', px = 0, py = 0;
+      for (var i = 0; i < series.length; i++) {
+        var x = (series[i].t - t0) / (t1 - t0) * 100;
+        var y = 100 - (series[i].v - LO) / (HI - LO) * 100;
+        x = Math.max(0, Math.min(100, x));
+        d += (i ? ' L ' : 'M ') + x.toFixed(2) + ' ' + y.toFixed(2);
+        px = x; py = y;
+      }
+      line.setAttribute('d', d);
+      area.setAttribute('d', d + ' L ' + px.toFixed(2) + ' 100 L 0 100 Z');
+      dot.setAttribute('cx', px.toFixed(2));
+      dot.setAttribute('cy', py.toFixed(2));
+      return { lo: lo, hi: hi };
+    }
+
+    return { el: svg, draw: draw };
+  }
+
+  /** "6 h zpět" -> text pod krivkou */
+  function spanLabel(hours) {
+    if (hours >= 48) return Math.round(hours / 24) + ' dny zpět';
+    if (hours >= 24) return '24 h zpět';
+    return hours + ' h zpět';
+  }
+
   /* ---------- pomocnici ---------- */
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -67,6 +129,8 @@ var Render = (function () {
   function build(layout, host, ctx) {
     ctx = ctx || {};
     var bindings = [];
+    // Krivky se neplni ze stavu, ale z historie - drzi se tedy zvlast.
+    var graphs = [];
     // Prvek, na kterem se prepinaji stavove tridy. V aplikaci je to <body>,
     // v karte pro Lovelace obal karty - jinam se karta sahat nesmi.
     var rootEl = ctx.root || document.body;
@@ -145,17 +209,19 @@ var Render = (function () {
       });
     }
 
-    /* ---------- sekce s budikem ---------- */
-    var mid = el('div', 'mid' + (layout.cards.length === 1 ? ' one' : ''));
+    /* ---------- sekce ----------
+       Trida n1..n6 rika CSS, kolik sekci se deli o plochu - podle toho
+       se srovna mrizka i meritko uvnitr sekci. */
+    var mid = el('div', 'mid n' + Math.min(6, layout.cards.length));
     layout.cards.forEach(function (card, idx) {
-      mid.appendChild(buildCard(card, idx, bind, ctx));
+      mid.appendChild(buildCard(card, idx, bind, ctx, graphs));
     });
     if (layout.cards.length) host.appendChild(mid);
 
     /* ---------- spodni panely ---------- */
-    var bot = el('div', 'bot' + (layout.panels.length === 1 ? ' one' : ''));
+    var bot = el('div', 'bot n' + Math.min(4, layout.panels.length));
     layout.panels.forEach(function (p, idx) {
-      bot.appendChild(buildPanel(p, idx, bind, ctx));
+      bot.appendChild(buildPanel(p, idx, bind, ctx, graphs));
     });
     if (layout.panels.length) host.appendChild(bot);
 
@@ -225,7 +291,7 @@ var Render = (function () {
       var inner = el('div', 'pempty');
       inner.innerHTML = 'Panel zatím nic neukazuje.<br>Klepni na ozubené kolo vpravo nahoře a vyber entity.';
       hint.appendChild(inner);
-      var wrap = el('div', 'mid one');
+      var wrap = el('div', 'mid n1');
       wrap.appendChild(hint);
       host.insertBefore(wrap, alertBar.nextSibling);
     }
@@ -246,17 +312,38 @@ var Render = (function () {
       }
     }
 
+    /** Nova historie jedne entity - prekresli vsechny jeji krivky. */
+    function setHistory(entityId, series) {
+      for (var i = 0; i < graphs.length; i++) {
+        if (graphs[i].entity !== entityId) continue;
+        try { graphs[i].draw(series); } catch (e) {}
+      }
+    }
+
+    /** Prekresleni vseho (napr. po zmene velikosti nebo pri navratu z klidu). */
+    function redraw(store) {
+      for (var i = 0; i < graphs.length; i++) {
+        try { graphs[i].draw(store ? store.get(graphs[i].entity) : null); } catch (e) {}
+      }
+    }
+
     return {
       bindings: bindings,
+      graphs: graphs,
       refresh: refresh,
       refreshOne: refreshOne,
+      setHistory: setHistory,
+      redraw: redraw,
       badge: badge,
       clock: { t: clockT, d: clockD, aTime: aClock, aDate: aDate }
     };
   }
 
-  /* ---------- jedna sekce ---------- */
-  function buildCard(card, idx, bind, ctx) {
+  /* ---------- jedna sekce ----------
+     Sekce ukazuje jednu hlavni hodnotu - a uzivatel si vybira, jak:
+     budikem, sloupcem, krivkou nebo holym cislem. Vsechny ctyri mluvi
+     stejne: velke cislo, jednotka a slovo o stavu. */
+  function buildCard(card, idx, bind, ctx, graphs) {
     var sec = el('section', 'pane card anim' + toneClass(card.tone));
     sec.style.animationDelay = (0.06 + idx * 0.08) + 's';
 
@@ -266,64 +353,24 @@ var Render = (function () {
     var part = el('span', 'part', '');
     head.appendChild(part);
     sec.appendChild(head);
-
-    var body = el('div', 'cbody');
-    var gw = el('div', 'gw');
-    var g = svg('<circle class="dial-frame" cx="159" cy="159" r="156"/>'
-      + '<circle class="dial-ticks" cx="159" cy="159" r="153"/>'
-      + '<circle class="dial-core" cx="159" cy="159" r="120"/>'
-      + '<g class="seg">' + dialPaths() + '</g>'
-      + '<text class="dial-caption" x="159" y="300" text-anchor="middle">'
-      + card.dial.min + ' — ' + card.dial.max + '</text>');
-    gw.appendChild(g);
-
-    var gv = el('div', 'gv');
-    var cap = el('div', 'cap', card.dial.caption || '');
-    var nEl = el('div', 'n', '--');
-    var uEl = el('div', 'u', '');
-    var stEl = el('div', 'st', '—');
-    gv.appendChild(cap); gv.appendChild(nEl); gv.appendChild(uEl); gv.appendChild(stEl);
-    gw.appendChild(gv);
-    body.appendChild(gw);
-
-    var seg = g.querySelector('.seg');
-    var accent = ACCENT[card.tone] || ACCENT.cyan;
-
     bind(card.dial.entity, function (st) {
-      var d = U.display(st, card.dial);
       // Jmeno entity vedle nadpisu jen tehdy, kdyz rika neco noveho -
       // dvakrat totez vedle sebe je jen sum.
       var ent = U.name(st, '') || '';
       part.textContent = ent.toLowerCase() === String(card.name || '').toLowerCase() ? '' : ent;
-      nEl.textContent = d.text;
-      nEl.classList.toggle('txt', isNaN(d.n));
-      uEl.textContent = d.unit;
-      var lv = U.level(d.n, card.dial.levels);
-      var hasLevels = card.dial.levels && card.dial.levels.length;
-      stEl.textContent = d.has ? (hasLevels ? lv.word : (d.word || '')) : 'Nedostupné';
-      stEl.style.color = hasLevels ? lv.color : '#7f8b99';
-      stEl.style.display = stEl.textContent && stEl.textContent !== '—' ? '' : 'none';
-      var ratio = isNaN(d.n) ? (d.has && String(st.state) === 'on' ? 1 : 0)
-                             : (d.n - card.dial.min) / (card.dial.max - card.dial.min);
-      setSeg(seg, ratio, hasLevels ? lv.color : accent);
     });
 
-    // Cerstve pridana sekce jeste entitu nema - at je videt proc, misto
-    // aby budik nekonecne ukazoval dve pomlcky.
-    if (!card.dial.entity) {
-      nEl.textContent = '—';
-      nEl.classList.add('txt');
-      stEl.textContent = 'Vyber entitu';
-      stEl.style.color = '#7f8b99';
-    }
+    var accent = ACCENT[card.tone] || ACCENT.cyan;
+    var body = el('div', 'cbody');
+    body.appendChild(buildVisual(card, bind, accent, graphs));
 
     var right = el('div', 'cright');
     (card.meters || []).forEach(function (m) {
-      right.appendChild(buildMeter(m, bind, accent));
+      right.appendChild(buildMeter(m, bind, accent, graphs));
     });
     if (card.tiles && card.tiles.length) {
       var tiles = el('div', 'tiles' + (card.tiles.length % 3 === 0 && card.tiles.length > 2 ? ' t3' : ''));
-      card.tiles.forEach(function (t) { tiles.appendChild(buildTile(t, bind)); });
+      card.tiles.forEach(function (t) { tiles.appendChild(buildTile(t, bind, graphs)); });
       right.appendChild(tiles);
     }
     body.appendChild(right);
@@ -331,8 +378,110 @@ var Render = (function () {
     return sec;
   }
 
-  /* ---------- ukazatel s pruhem ---------- */
-  function buildMeter(item, bind, accent) {
+  /* ---------- hlavni hodnota sekce ---------- */
+  function buildVisual(card, bind, accent, graphs) {
+    var d = card.dial;
+    var view = card.view || 'gauge';
+    var nEl = el('div', 'n', '--');
+    var uEl = el('div', 'u', '');
+    var stEl = el('div', 'st', '—');
+    var capEl = el('div', 'cap', d.caption || '');
+    var wrap, setVisual = function () {};
+
+    if (view === 'bar') {
+      wrap = el('div', 'barw');
+      var col = el('div', 'bcol');
+      var segs = [];
+      for (var i = 0; i < 24; i++) {
+        var seg = el('i', 'bseg');
+        col.appendChild(seg);
+        segs.push(seg);
+      }
+      var side = el('div', 'bside');
+      side.appendChild(capEl); side.appendChild(nEl); side.appendChild(uEl); side.appendChild(stEl);
+      wrap.appendChild(col); wrap.appendChild(side);
+      setVisual = function (ratio, color) {
+        var lit = Math.round(Math.max(0, Math.min(1, ratio)) * segs.length);
+        for (var j = 0; j < segs.length; j++) {
+          segs[j].style.background = j < lit ? color : '#141d28';
+          segs[j].style.opacity = j < lit ? (0.6 + 0.4 * (j / Math.max(1, lit))) : 1;
+        }
+      };
+
+    } else if (view === 'graph') {
+      wrap = el('div', 'graphw');
+      var ghead = el('div', 'ghead');
+      ghead.appendChild(capEl); ghead.appendChild(nEl); ghead.appendChild(uEl); ghead.appendChild(stEl);
+      var gbox = el('div', 'gbox');
+      var chart = makeChart();
+      var gmax = el('div', 'gmax', '');
+      var gmin = el('div', 'gmin', '');
+      var gempty = el('div', 'gempty', 'zatím bez historie');
+      gbox.appendChild(chart.el); gbox.appendChild(gmax); gbox.appendChild(gmin); gbox.appendChild(gempty);
+      var span = el('div', 'span');
+      span.appendChild(el('span', '', spanLabel(card.hours || 6)));
+      span.appendChild(el('span', '', 'teď'));
+      wrap.appendChild(ghead); wrap.appendChild(gbox); wrap.appendChild(span);
+
+      graphs.push({
+        entity: d.entity,
+        hours: card.hours || 6,
+        draw: function (series) {
+          var r = chart.draw(series, card.hours || 6);
+          gempty.style.display = r ? 'none' : '';
+          gmax.textContent = r ? U.fmt(r.hi, d.decimals === null ? 1 : d.decimals) : '';
+          gmin.textContent = r ? U.fmt(r.lo, d.decimals === null ? 1 : d.decimals) : '';
+        }
+      });
+
+    } else if (view === 'number') {
+      wrap = el('div', 'numw');
+      wrap.appendChild(capEl); wrap.appendChild(nEl); wrap.appendChild(uEl); wrap.appendChild(stEl);
+
+    } else {
+      wrap = el('div', 'gw');
+      var g = svg('<circle class="dial-frame" cx="159" cy="159" r="156"/>'
+        + '<circle class="dial-ticks" cx="159" cy="159" r="153"/>'
+        + '<circle class="dial-core" cx="159" cy="159" r="120"/>'
+        + '<g class="seg">' + dialPaths() + '</g>'
+        + '<text class="dial-caption" x="159" y="300" text-anchor="middle">'
+        + d.min + ' — ' + d.max + '</text>');
+      wrap.appendChild(g);
+      var gv = el('div', 'gv');
+      gv.appendChild(capEl); gv.appendChild(nEl); gv.appendChild(uEl); gv.appendChild(stEl);
+      wrap.appendChild(gv);
+      var segGroup = g.querySelector('.seg');
+      setVisual = function (ratio, color) { setSeg(segGroup, ratio, color); };
+    }
+
+    bind(d.entity, function (st) {
+      var disp = U.display(st, d);
+      nEl.textContent = disp.text;
+      nEl.classList.toggle('txt', isNaN(disp.n));
+      uEl.textContent = disp.unit;
+      var lv = U.level(disp.n, d.levels);
+      var hasLevels = d.levels && d.levels.length;
+      stEl.textContent = disp.has ? (hasLevels ? lv.word : (disp.word || '')) : 'Nedostupné';
+      stEl.style.color = hasLevels ? lv.color : '#7f8b99';
+      stEl.style.display = stEl.textContent && stEl.textContent !== '—' ? '' : 'none';
+      var ratio = isNaN(disp.n) ? (disp.has && String(st.state) === 'on' ? 1 : 0)
+                                : (disp.n - d.min) / (d.max - d.min);
+      setVisual(ratio, hasLevels ? lv.color : accent);
+    });
+
+    // Cerstve pridana sekce jeste entitu nema - at je videt proc, misto
+    // aby budik nekonecne ukazoval dve pomlcky.
+    if (!d.entity) {
+      nEl.textContent = '—';
+      nEl.classList.add('txt');
+      stEl.textContent = 'Vyber entitu';
+      stEl.style.color = '#7f8b99';
+    }
+    return wrap;
+  }
+
+  /* ---------- ukazatel vedle hlavni hodnoty ---------- */
+  function buildMeter(item, bind, accent, graphs) {
     var m = el('div', 'meter');
     var lbl = el('div', 'lbl');
     var k = el('span', 'k');
@@ -342,10 +491,17 @@ var Render = (function () {
     k.appendChild(kState);
     var v = el('span', 'v', '--');
     lbl.appendChild(k); lbl.appendChild(v);
-    var track = el('div', 'track');
-    var fill = el('div', 'fill');
-    track.appendChild(fill);
-    m.appendChild(lbl); m.appendChild(track);
+    m.appendChild(lbl);
+
+    var fill = null, spark = null;
+    if (item.view === 'bar') {
+      var track = el('div', 'track');
+      fill = el('div', 'fill');
+      track.appendChild(fill);
+      m.appendChild(track);
+    } else if (item.view === 'graph') {
+      spark = addSpark(m, item, graphs);
+    }
 
     bind(item.entity, function (st) {
       var d = U.display(st, item);
@@ -355,19 +511,38 @@ var Render = (function () {
       var has = item.levels && item.levels.length;
       kState.textContent = has && d.has ? lv.word : '';
       kState.style.color = lv.color;
-      fill.style.width = U.pct(d.n, item.min, item.max) + '%';
-      fill.style.background = has ? lv.color : accent;
+      if (fill) {
+        fill.style.width = U.pct(d.n, item.min, item.max) + '%';
+        fill.style.background = has ? lv.color : accent;
+      }
       v.style.color = has && d.has ? lv.color : '';
     });
     return m;
   }
 
+  /** Mala krivka bez popisku - do dlazdice i do ukazatele. */
+  function addSpark(host, item, graphs) {
+    var box = el('div', 'spark');
+    var chart = makeChart();
+    box.appendChild(chart.el);
+    host.appendChild(box);
+    if (graphs) {
+      graphs.push({
+        entity: item.entity,
+        hours: item.hours || 6,
+        draw: function (series) { chart.draw(series, item.hours || 6); }
+      });
+    }
+    return chart;
+  }
+
   /* ---------- mala dlazdice v sekci ---------- */
-  function buildTile(item, bind) {
+  function buildTile(item, bind, graphs) {
     var t = el('div', 'tile');
     var k = el('div', 'k', item.name || '');
     var v = el('div', 'v', '--');
     t.appendChild(k); t.appendChild(v);
+    if (item.view === 'graph') addSpark(t, item, graphs);
     bind(item.entity, function (st) {
       var d = U.display(st, item);
       if (!item.name) k.textContent = U.name(st, '');
@@ -385,7 +560,7 @@ var Render = (function () {
   }
 
   /* ---------- spodni panel ---------- */
-  function buildPanel(panel, idx, bind, ctx) {
+  function buildPanel(panel, idx, bind, ctx, graphs) {
     var accent = ACCENT[panel.tone] || ACCENT.green;
     var sec = el('section', 'pane panel anim' + toneClass(panel.tone));
     sec.style.animationDelay = (0.2 + idx * 0.08) + 's';
@@ -404,13 +579,13 @@ var Render = (function () {
       row.appendChild(el('div', 'pempty', 'zatím prázdné'));
     }
     panel.items.forEach(function (item) {
-      row.appendChild(buildPanelItem(item, bind, ctx, accent));
+      row.appendChild(buildPanelItem(item, bind, ctx, accent, graphs));
     });
     sec.appendChild(row);
     return sec;
   }
 
-  function buildPanelItem(item, bind, ctx, accent) {
+  function buildPanelItem(item, bind, ctx, accent, graphs) {
     // Znacka "tohle jde prepnout" patri jen tomu, co se opravdu prepina.
     // Karta v Lovelace navic necha klepnout na cokoli - u cidla se otevre
     // podrobnost, jak je v Home Assistantu zvykem.
@@ -425,11 +600,13 @@ var Render = (function () {
     t.appendChild(lk); t.appendChild(lv);
 
     var fill = null;
-    if (item.bar) {
+    if (item.view === 'bar') {
       var track = el('div', 'track');
       fill = el('div', 'fill');
       track.appendChild(fill);
       t.appendChild(track);
+    } else if (item.view === 'graph') {
+      addSpark(t, item, graphs);
     }
     var note = el('div', 'lr', item.entity ? '' : 'bez entity');
     t.appendChild(note);
@@ -461,10 +638,11 @@ var Render = (function () {
       var on = st && (st.state === 'on' || st.state === 'open' || st.state === 'playing'
                    || st.state === 'unlocked' || st.state === 'cleaning');
       t.classList.toggle('on', !!on);
-      note.textContent = st ? U.ago(st.last_changed) : 'entita v Home Assistantu není';
+      note.textContent = st ? U.ago(st.last_changed) : (item.entity ? 'entita v Home Assistantu není' : 'bez entity');
     });
     return t;
   }
+
 
   return { build: build, setSeg: setSeg, dialPaths: dialPaths };
 })();

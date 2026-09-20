@@ -17,6 +17,7 @@
   var layout = Layout.empty();
   var view = null;          // vysledek Render.build
   var conn = null;
+  var history = null;       // prubeh hodnot pro krivky
   var demo = false;
 
   /* ================= nastaveni ================= */
@@ -56,25 +57,46 @@
 
   var driftX = 0, driftY = 0;
 
+  /**
+   * Plocha panelu se prizpusobi tvaru displeje.
+   *
+   * Drive mela pevny pomer 2400 x 1080, takze na tabletu 16:10 zbyl
+   * nahore i dole cerny pruh. Ted se dopocita druhy rozmer z pomeru
+   * stran displeje, takze panel vyplni celou plochu a sekce dostanou
+   * vsechno misto, ktere tablet ma.
+   */
   function fit() {
     var vv = window.visualViewport;
     var probe = document.getElementById('vhProbe');
     var measured = probe ? probe.getBoundingClientRect().height : 0;
     var vh = measured > 40 ? measured : (vv ? vv.height : innerHeight);
     var vw = vv ? vv.width : innerWidth;
+    if (!vw || !vh) return;
 
-    // Tablet na vysku dostane vlastni navrhovy prostor, jinak by panel
-    // na sirku zbyl jako uzky prouzek uprostred.
-    var portrait = vh > vw * 1.05;
-    document.body.classList.toggle('is-portrait', portrait);
-    var W = portrait ? 1400 : 2400, H = portrait ? 2000 : 1080;
+    var size = stageSize(vw, vh);
+    document.body.classList.toggle('is-portrait', size.portrait);
 
     var st = document.getElementById('stage');
-    var s = Math.min(vw / W, vh / H);
+    st.style.width = size.w + 'px';
+    st.style.height = size.h + 'px';
+    var s = Math.min(vw / size.w, vh / size.h);
     st.style.transform = 'scale(' + s + ')';
-    st.style.left = ((vw - W * s) / 2 + driftX) + 'px';
-    st.style.top = ((vh - H * s) / 2 + driftY) + 'px';
+    st.style.left = ((vw - size.w * s) / 2 + driftX) + 'px';
+    st.style.top = ((vh - size.h * s) / 2 + driftY) + 'px';
   }
+
+  /** Navrhovy prostor: sirka je dana, druhy rozmer kopiruje displej. */
+  function stageSize(vw, vh) {
+    var portrait = vh > vw * 1.05;
+    if (portrait) {
+      var h = 2000;
+      return { w: clamp(Math.round(h * vw / vh), 1000, 1700), h: h, portrait: true };
+    }
+    var w = 2400;
+    return { w: w, h: clamp(Math.round(w * vh / vw), 1000, 2100), h2: 0, portrait: false };
+  }
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
   /* Displej sviti cele dny se statickym obrazem, takze se cely panel
      kazdou minutu nenapadne posune o par pixelu - jinak by se do OLED
@@ -312,6 +334,7 @@
       },
       onStates: function (states) {
         applyControl(states, true);
+        setupHistory();
         if (Layout.isEmpty(layout)) {
           // Prvni spusteni: rovnou neco ukazat, at panel nezustane prazdny.
           layout = Layout.fromStates(states);
@@ -325,6 +348,11 @@
       },
       onChange: function (entityId, st, states) {
         if (view) view.refreshOne(entityId, states);
+        // Krivka roste ze stejnych zmen, ktere uz stejne chodi -
+        // server se kvuli ni nemusi ptat casteji.
+        if (history && st && history.push(entityId, st.state)) {
+          view.setHistory(entityId, history.get(entityId));
+        }
         if (layout.control && (entityId === layout.control.screen
             || entityId === layout.control.brightness)) {
           applyControl(states, false);
@@ -360,6 +388,23 @@
     }
   }
 
+  /* ---- krivky ----
+     Historii si rekne jen to, co ji opravdu kresli; zbytek panelu bezi
+     dal ze zivych stavu. */
+  function setupHistory() {
+    if (!conn) return;
+    if (!history) {
+      history = new History.Store(function (msg) { return conn.request(msg); });
+      history.onData = function (entity, series) {
+        if (view) view.setHistory(entity, series);
+      };
+    }
+    var want = Layout.graphed(layout);
+    history.set(want);
+    if (want.length) history.start();
+    else history.stop();
+  }
+
   function downOverlay(title, text, note) {
     document.getElementById('downTitle').textContent = title;
     document.getElementById('downText').textContent = text;
@@ -376,7 +421,8 @@
     tick();
     syncBadge();
     if (conn && conn.states) view.refresh(conn.states);
-    if (demo) view.refresh(demoStates);
+    if (demo) { view.refresh(demoStates); demoHistory(); }
+    if (history) { setupHistory(); view.redraw(history); }
   }
 
   function onTap(entityId) {
@@ -419,10 +465,38 @@
 
     layout = Layout.fromStates(demoStates);
     layout.title = '';
+    // Ukazka ma predvest vsechny zpusoby zobrazeni, ne jen budiky.
+    if (layout.cards[1]) {
+      layout.cards[1].view = 'graph';
+      layout.cards[1].hours = 12;
+    }
+    layout.cards.push(Layout.normalize({ cards: [{
+      name: 'ODBĚR', code: 'W', tone: 'violet', view: 'bar',
+      dial: { entity: 'sensor.spotreba', caption: 'Příkon', min: 0, max: 3000 },
+      tiles: [{ entity: 'sensor.co2', name: 'CO₂', view: 'graph' }]
+    }] }).cards[0]);
+    layout = Layout.normalize(layout);
     rebuild();
     setMode('live');
     badge('Ukázka', 'warn');
     toast('Ukázka bez Home Assistanta. Nastavení najdeš pod ozubeným kolem.');
+  }
+
+  /** Ukazka nema odkud vzit historii, tak si ji vymysli. */
+  function demoHistory() {
+    if (!view) return;
+    Layout.graphed(layout).forEach(function (w) {
+      var st = demoStates[w.entity];
+      var base = st ? U.num(st.state) : 20;
+      if (isNaN(base)) base = 20;
+      var now = Date.now(), series = [];
+      for (var i = 120; i >= 0; i--) {
+        var t = now - i * (w.hours * 3600000 / 120);
+        var wave = Math.sin(i / 11) * base * 0.12 + Math.sin(i / 3.3) * base * 0.03;
+        series.push({ t: t, v: Math.round((base + wave) * 10) / 10 });
+      }
+      view.setHistory(w.entity, series);
+    });
   }
 
   /* ================= spusteni ================= */

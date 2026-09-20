@@ -12,6 +12,18 @@ var Layout = (function () {
   var VERSION = 1;
   var TONES = ['cyan', 'amber', 'green', 'violet', 'red'];
 
+  /* Jak se hodnota kresli.
+       gauge  - budik (vychozi)
+       bar    - svisly sloupec
+       graph  - krivka za poslednich N hodin
+       number - jen velke cislo
+     Dlazdice a ukazatele znaji value / bar / graph. */
+  var CARD_VIEWS = ['gauge', 'bar', 'graph', 'number'];
+  var ITEM_VIEWS = ['value', 'bar', 'graph'];
+
+  /* Kolik se toho vejde. Vic sekci = mensi okna, o tom rozhoduje uzivatel. */
+  var MAX_CARDS = 6, MAX_PANELS = 4, MAX_ITEMS = 8, MAX_METERS = 4, MAX_TILES = 6;
+
   function id(prefix) {
     return prefix + '-' + Math.random().toString(36).slice(2, 8);
   }
@@ -41,7 +53,7 @@ var Layout = (function () {
 
   function newCard() {
     return {
-      id: id('card'), name: 'Nová sekce', code: '', tone: 'cyan',
+      id: id('card'), name: 'Nová sekce', code: '', tone: 'cyan', view: 'gauge', hours: 6,
       dial: { entity: '', caption: '', unit: '', min: 0, max: 100, decimals: null, levels: [] },
       meters: [], tiles: []
     };
@@ -53,7 +65,7 @@ var Layout = (function () {
 
   function newItem(entity) {
     return { entity: entity || '', name: '', unit: '', attribute: '', decimals: null,
-             tap: 'auto', bar: false, min: 0, max: 100, levels: [] };
+             tap: 'auto', view: 'value', hours: 6, min: 0, max: 100, levels: [] };
   }
 
   /* ---------- kontrola a doplneni ---------- */
@@ -89,7 +101,10 @@ var Layout = (function () {
       attribute: str(r.attribute, ''),
       decimals: (r.decimals === null || r.decimals === undefined || r.decimals === '') ? null : Math.max(0, Math.min(3, nOr(r.decimals, 0))),
       tap: ['auto', 'none', 'toggle'].indexOf(r.tap) >= 0 ? r.tap : 'auto',
-      bar: !!r.bar,
+      // "bar: true" je starsi zapis (a zkratka v konfiguraci karty),
+      // ktery znamena totez co view: bar.
+      view: ITEM_VIEWS.indexOf(r.view) >= 0 ? r.view : (r.bar ? 'bar' : 'value'),
+      hours: Math.max(1, Math.min(72, nOr(r.hours, 6))),
       min: min, max: max,
       levels: normLevels(r.levels)
     };
@@ -105,6 +120,8 @@ var Layout = (function () {
       name: str(r.name, 'Sekce'),
       code: str(r.code, '').slice(0, 4),
       tone: tone(r.tone),
+      view: CARD_VIEWS.indexOf(r.view) >= 0 ? r.view : 'gauge',
+      hours: Math.max(1, Math.min(72, nOr(r.hours, 6))),
       dial: {
         entity: str(d.entity, ''),
         caption: str(d.caption, ''),
@@ -114,10 +131,13 @@ var Layout = (function () {
         min: min, max: max,
         levels: normLevels(d.levels)
       },
-      meters: (Array.isArray(r.meters) ? r.meters : []).slice(0, 4).map(function (m) {
-        var it = normItem(m); it.bar = true; return it;
+      // Ukazatel vedle budiku ma pruh, dokud si uzivatel nerekne o graf.
+      meters: (Array.isArray(r.meters) ? r.meters : []).slice(0, MAX_METERS).map(function (m) {
+        var it = normItem(m);
+        if (it.view === 'value') it.view = 'bar';
+        return it;
       }),
-      tiles: (Array.isArray(r.tiles) ? r.tiles : []).slice(0, 6).map(normItem)
+      tiles: (Array.isArray(r.tiles) ? r.tiles : []).slice(0, MAX_TILES).map(normItem)
     };
   }
 
@@ -127,7 +147,7 @@ var Layout = (function () {
       id: str(r.id, id('panel')),
       name: str(r.name, 'Panel'),
       tone: tone(r.tone, 'green'),
-      items: (Array.isArray(r.items) ? r.items : []).slice(0, 8).map(normItem)
+      items: (Array.isArray(r.items) ? r.items : []).slice(0, MAX_ITEMS).map(normItem)
     };
   }
 
@@ -141,8 +161,8 @@ var Layout = (function () {
       v: VERSION,
       title: str(r.title, ''),
       subtitle: str(r.subtitle, ''),
-      cards: (Array.isArray(r.cards) ? r.cards : []).slice(0, 2).map(normCard),
-      panels: (Array.isArray(r.panels) ? r.panels : []).slice(0, 2).map(normPanel),
+      cards: (Array.isArray(r.cards) ? r.cards : []).slice(0, MAX_CARDS).map(normCard),
+      panels: (Array.isArray(r.panels) ? r.panels : []).slice(0, MAX_PANELS).map(normPanel),
       ambient: emptyAmbient(),
       alert: null,
       // Ovladani tabletu z Home Assistantu: prepinac pro displej a
@@ -189,6 +209,33 @@ var Layout = (function () {
     }
     if (l.alert) add(l.alert.entity);
     if (l.control) { add(l.control.screen); add(l.control.brightness); }
+    return out;
+  }
+
+  /** Entity, ktere potrebuji historii (krivku), i s delkou okna v hodinach. */
+  function graphed(l) {
+    var out = [];
+    function add(entity, hours) {
+      if (!entity) return;
+      for (var i = 0; i < out.length; i++) {
+        if (out[i].entity === entity) {
+          out[i].hours = Math.max(out[i].hours, hours);
+          return;
+        }
+      }
+      out.push({ entity: entity, hours: hours });
+    }
+    (l.cards || []).forEach(function (c) {
+      if (c.view === 'graph') add(c.dial.entity, c.hours);
+      (c.meters || []).concat(c.tiles || []).forEach(function (i) {
+        if (i.view === 'graph') add(i.entity, i.hours);
+      });
+    });
+    (l.panels || []).forEach(function (p) {
+      (p.items || []).forEach(function (i) {
+        if (i.view === 'graph') add(i.entity, i.hours);
+      });
+    });
     return out;
   }
 
@@ -277,8 +324,11 @@ var Layout = (function () {
   return {
     VERSION: VERSION, TONES: TONES,
     empty: empty, newCard: newCard, newPanel: newPanel, newItem: newItem,
-    normalize: normalize, entities: entities, isEmpty: isEmpty, fromStates: fromStates,
-    id: id
+    normalize: normalize, entities: entities, graphed: graphed, isEmpty: isEmpty,
+    fromStates: fromStates, id: id,
+    CARD_VIEWS: CARD_VIEWS, ITEM_VIEWS: ITEM_VIEWS,
+    MAX_CARDS: MAX_CARDS, MAX_PANELS: MAX_PANELS, MAX_ITEMS: MAX_ITEMS,
+    MAX_METERS: MAX_METERS, MAX_TILES: MAX_TILES
   };
 })();
 

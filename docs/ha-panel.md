@@ -124,7 +124,7 @@ spuštění. Když si nastavíš PIN, chce ho panel pokaždé.
 | Volba | Co dělá |
 |---|---|
 | **Spustit po startu systému** | Po zapnutí tabletu naskočí panel sám. |
-| **Otočení obrazovky** | Podle senzoru / na šířku / na výšku. Panel umí obě orientace, na výšku se sekce poskládají pod sebe. |
+| **Otočení obrazovky** | Podle senzoru / na šířku / na výšku. Panel umí obě orientace a v obou vyplní celou plochu displeje — rozvržení se přizpůsobí poměru stran tabletu, ať je 16:9, 16:10 nebo 4:3. |
 | **PIN k nastavení** | Prázdné = bez zámku. Jinak se nastavení bez PINu neotevře. |
 | **Hlásit stav tabletu** | Vytvoří v Home Assistantu čidla tabletu. |
 | **Název zařízení** | Z něj se odvodí názvy entit: „Panel v kuchyni“ → `sensor.panel_v_kuchyni_baterie`. |
@@ -140,19 +140,36 @@ Ozubené kolo vpravo nahoře. Dokud neklepneš na **Uložit**, běží panel dá
 podle starého nastavení.
 
 ### Sekce
-Velký budík s hodnotou uprostřed. Panel unese dvě.
+Hlavní hodnota s ukazateli vedle. Panel unese **šest sekcí** — čím víc jich
+je, tím menší okna; o tom rozhoduješ ty. Sekce se samy poskládají do mřížky
+(1–3 vedle sebe, při více řádcích 2×2 nebo 3×2) a všechno uvnitř se úměrně
+zmenší, takže sekce zůstane čitelná.
+
+- **Zobrazení** — jak se hodnota kreslí:
+
+  | Volba | Co uvidíš |
+  |---|---|
+  | **Budík** | velký oblouk se segmenty a číslem uprostřed (výchozí) |
+  | **Sloupec** | svislý sloupec vedle čísla — stejné čtení jako budík, míň místa |
+  | **Graf (křivka)** | průběh za posledních 1–72 hodin, u okraje krajní naměřené hodnoty |
+  | **Jen číslo** | velké číslo bez rozsahu — pro veličiny, kde žádný rozsah nedává smysl |
 
 - **Entita budíku** — hlavní hodnota. Po výběru se rozsah, popisek i stupně
   doplní podle druhu čidla (teplota, vlhkost, baterie, CO₂, prach…).
-- **Budík od / do** — rozsah, po kterém segmenty obíhají.
+- **Budík od / do** — rozsah, po kterém segmenty obíhají (u křivky se
+  svislý rozsah řídí naměřenými hodnotami, takže se nenastavuje).
+- **Křivka za** — jak dlouhé okno historie graf ukazuje.
 - **Stupně** — řádek říká „do téhle hodnoty platí tohle slovo a barva“.
   Poslední řádek bez čísla platí pro všechno nad. Slovo je důležitější než
   barva: přes pokoj se barvy pletou a část lidí je nerozliší vůbec.
-- **Ukazatele** — až čtyři řádky s pruhem vedle budíku.
+- **Ukazatele** — až čtyři řádky vedle hlavní hodnoty.
 - **Dlaždice** — až šest malých hodnot pod ukazateli.
 
+U ukazatele i dlaždice se vybírá **Zobrazení**: *Jen hodnota*, *Pruh*
+(s vlastním rozsahem) nebo *Křivka* (malý graf pod číslem).
+
 ### Panely
-Řada dlaždic dole, až osm v jednom panelu, dva panely vedle sebe.
+Řada dlaždic dole, až osm v jednom panelu, **čtyři panely vedle sebe**.
 U každé dlaždice se dá zapnout pruh a nastavit, co má dělat **klepnutí**:
 
 - *Podle druhu entity* (výchozí) — světlo, zásuvka, přepínač a ventilátor
@@ -369,6 +386,7 @@ android/
             ├─ util.js             čísla, slova, stupně
             ├─ layout.js           rozvržení a jeho kontrola
             ├─ ha.js               WebSocket klient Home Assistanta
+            ├─ history.js          průběh hodnot pro křivky
             ├─ render.js           stavba obrazovky a vazby na entity
             ├─ editor.js           editor a výběr entit
             └─ app.js              slepení celku, režimy, klidový režim
@@ -380,4 +398,5 @@ Testy stránky běží v Node bez prohlížeče:
 node tests/hapanel-util.cjs
 node tests/hapanel-layout.cjs
 node tests/hapanel-ws.cjs
+node tests/hapanel-history.cjs
 ```

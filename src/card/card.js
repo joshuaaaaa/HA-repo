@@ -27,6 +27,8 @@ function cardLayout(config) {
   (config.sections || config.cards || []).forEach(function (s) {
     out.cards.push({
       id: s.id, name: s.name, code: s.code, tone: s.tone,
+      // view: gauge (vychozi) | bar | graph | number, hours = okno krivky
+      view: s.view, hours: s.hours,
       dial: {
         entity: s.entity, caption: s.caption, unit: s.unit, attribute: s.attribute,
         decimals: s.decimals, min: s.min, max: s.max, levels: s.levels
@@ -78,6 +80,7 @@ class HaPanelCard extends HTMLElement {
     this._hass = null;
     this._timer = null;
     this._ro = null;
+    this._history = null;
   }
 
   /* ---------- Lovelace rozhraní ---------- */
@@ -102,6 +105,7 @@ class HaPanelCard extends HTMLElement {
       return;
     }
     this._view.refresh(hass.states);
+    this._pushHistory();
     this._fit();
   }
 
@@ -164,6 +168,7 @@ class HaPanelCard extends HTMLElement {
     this._timer = setInterval(function () { self._tick(); }, 1000);
 
     if (this._hass) this._view.refresh(this._hass.states);
+    this._startHistory();
     this._fit();
 
     if (!this._ro && typeof ResizeObserver !== 'undefined') {
@@ -199,6 +204,41 @@ class HaPanelCard extends HTMLElement {
     this._root.style.height = Math.round(h * scale) + 'px';
   }
 
+  /* ---------- krivky ----------
+     Prubeh hodnot si karta vyzada pres hass.callWS - stejnym prikazem,
+     jakym ho cte historie v Home Assistantu. */
+  _startHistory() {
+    var self = this;
+    var want = Layout.graphed(this._layout);
+    if (!want.length) {
+      if (this._history) { this._history.stop(); this._history = null; }
+      return;
+    }
+    if (!this._history) {
+      this._history = new History.Store(function (msg) {
+        return self._hass ? self._hass.callWS(msg) : Promise.reject(new Error('bez hass'));
+      });
+      this._history.onData = function (entity, series) {
+        if (self._view) self._view.setHistory(entity, series);
+      };
+    }
+    this._history.set(want);
+    this._history.start();
+  }
+
+  /** Kazda nova hodnota posune krivku, nez prijde dalsi cele nacteni. */
+  _pushHistory() {
+    if (!this._history || !this._hass) return;
+    var self = this;
+    Layout.graphed(this._layout).forEach(function (w) {
+      var st = self._hass.states[w.entity];
+      if (!st) return;
+      if (self._history.push(w.entity, st.state, Date.parse(st.last_updated || st.last_changed))) {
+        self._view.setHistory(w.entity, self._history.get(w.entity));
+      }
+    });
+  }
+
   _tap(entityId) {
     if (!this._hass || !entityId) return;
     var st = this._hass.states[entityId];
@@ -217,6 +257,7 @@ class HaPanelCard extends HTMLElement {
   disconnectedCallback() {
     if (this._timer) { clearInterval(this._timer); this._timer = null; }
     if (this._ro) { this._ro.disconnect(); this._ro = null; }
+    if (this._history) this._history.stop();
   }
 
   connectedCallback() {
@@ -228,6 +269,7 @@ class HaPanelCard extends HTMLElement {
       this._ro = new ResizeObserver(function () { self._fit(); });
       this._ro.observe(this);
     }
+    if (this._history) this._history.start();
     this._fit();
   }
 }

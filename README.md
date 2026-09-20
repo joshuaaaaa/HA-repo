@@ -46,13 +46,14 @@ title: DŮM                # prázdné = jen hodiny a stav
 subtitle: ''
 clock: true               # hodiny v záhlaví
 
-sections:                 # velké budíky, nejvýš dva
+sections:                 # hlavní hodnoty, nejvýš šest
   - name: OBÝVÁK
     code: T1              # zkratka v rámečku
     tone: cyan            # cyan | amber | green | violet | red
+    view: gauge           # gauge (budík) | bar (sloupec) | graph (křivka) | number
     entity: sensor.obyvak_teplota
     caption: Teplota      # popisek nad číslem
-    min: 0
+    min: 0                # rozsah budíku i sloupce
     max: 35
     levels:               # hodnota → slovo a barva
       - { to: 18, tone: info,     label: Chladno }
@@ -62,15 +63,22 @@ sections:                 # velké budíky, nejvýš dva
     meters:               # ukazatele s pruhem vedle budíku
       - { entity: sensor.obyvak_vlhkost, name: Vlhkost, min: 0, max: 100 }
     tiles:                # malé hodnoty pod ukazateli
-      - { entity: sensor.co2, name: 'CO₂' }
+      - { entity: sensor.co2, name: 'CO₂', view: graph, hours: 6 }
 
-panels:                   # řady dlaždic dole, nejvýš dva panely
+  - name: VENKU           # druhá sekce jako křivka
+    code: T2
+    tone: amber
+    view: graph
+    hours: 12             # kolik hodin zpět (1 až 72)
+    entity: sensor.venku_teplota
+
+panels:                   # řady dlaždic dole, nejvýš čtyři panely
   - name: Světla
     tone: amber
     items:
       - { entity: light.kuchyne, name: Kuchyně }
       - { entity: light.loznice, name: Ložnice }
-      - { entity: sensor.tablet_baterie, name: Tablet, bar: true, min: 0, max: 100 }
+      - { entity: sensor.tablet_baterie, name: Tablet, view: bar, min: 0, max: 100 }
 ```
 
 Nejkratší možná karta vypadá takhle — zbytek si karta domyslí podle druhu
@@ -82,11 +90,25 @@ sections:
   - { name: OBÝVÁK, entity: sensor.obyvak_teplota }
 ```
 
-**Volby sekce:** `name`, `code`, `tone`, `entity`, `attribute`, `caption`,
-`unit`, `decimals`, `min`, `max`, `levels`, `meters`, `tiles`.
+**Volby sekce:** `name`, `code`, `tone`, `view`, `hours`, `entity`, `attribute`,
+`caption`, `unit`, `decimals`, `min`, `max`, `levels`, `meters`, `tiles`.
 **Volby dlaždice** (v `meters`, `tiles` i `items`): `entity`, `name`, `unit`,
-`attribute`, `decimals`, `bar`, `min`, `max`, `levels`, `tap`
-(`auto` / `none` / `toggle`).
+`attribute`, `decimals`, `view` (`value` / `bar` / `graph`), `hours`, `min`,
+`max`, `levels`, `tap` (`auto` / `none` / `toggle`). Starší zápis `bar: true`
+platí dál a znamená totéž co `view: bar`.
+
+**Jak se hodnota kreslí (`view`):**
+
+| Hodnota | Sekce | Dlaždice |
+|---|---|---|
+| `gauge` | velký budík s obloukem (výchozí) | — |
+| `bar` | svislý sloupec vedle čísla | pruh pod hodnotou |
+| `graph` | křivka za posledních `hours` hodin | malá křivka pod hodnotou |
+| `number` | jen velké číslo | výchozí (`value`) |
+
+Křivku kreslí karta z historie Home Assistanta (`history/history_during_period`)
+a mezi načteními ji dokresluje z živých změn stavu. Svislý rozsah se řídí
+naměřenými hodnotami — krajní hodnoty jsou napsané u okraje grafu.
 
 **Klepnutí:** světlo, zásuvka, přepínač, scéna, skript, žaluzie, zámek a
 přehrávač se rovnou přepnou; u čidla se otevře obvyklé okno s podrobnostmi.
@@ -169,6 +191,7 @@ node tools/build-card.mjs --check  # jen ověří, že je dist aktuální
 node tests/hapanel-util.cjs        # čísla, slova, stupně
 node tests/hapanel-layout.cjs      # rozvržení a jeho kontrola
 node tests/hapanel-ws.cjs          # spojení s HA: přihlášení, výpadky, služby
+node tests/hapanel-history.cjs     # historie pro křivky
 node tests/card-browser.mjs        # karta v prohlížeči (potřebuje Playwright)
 ```
 

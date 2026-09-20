@@ -15,9 +15,41 @@ l = Layout.normalize('{"title":"Dům"}');
 assert.equal(l.title, 'Dům', 'normalize bere i text');
 assert.equal(Layout.normalize('tohle neni json').title, '', 'rozbity text nezpusobi vyjimku');
 
-l = Layout.normalize({ cards: [{}, {}, {}], panels: [{}, {}, {}] });
-assert.equal(l.cards.length, 2, 'sekce jsou nejvys dve');
-assert.equal(l.panels.length, 2, 'panely take');
+l = Layout.normalize({ cards: new Array(9).fill({}), panels: new Array(9).fill({}) });
+assert.equal(l.cards.length, Layout.MAX_CARDS, 'sekci je nejvys sest');
+assert.equal(l.panels.length, Layout.MAX_PANELS, 'panelu nejvys ctyri');
+
+/* --- zpusob zobrazeni --- */
+l = Layout.normalize({ cards: [
+  { view: 'graph', hours: 500, dial: { entity: 'sensor.a' } },
+  { view: 'vymysl', dial: { entity: 'sensor.b' } }
+] });
+assert.equal(l.cards[0].view, 'graph');
+assert.equal(l.cards[0].hours, 72, 'delka krivky ma strop');
+assert.equal(l.cards[1].view, 'gauge', 'neznamy zpusob zobrazeni = budik');
+
+l = Layout.normalize({ panels: [{ items: [
+  { entity: 'sensor.a', bar: true },        // starsi zapis
+  { entity: 'sensor.b', view: 'graph' },
+  { entity: 'sensor.c' }
+] }] });
+assert.deepEqual(l.panels[0].items.map(i => i.view), ['bar', 'graph', 'value'],
+  '"bar: true" znamena totez co view: bar');
+assert.equal(Layout.normalize({ cards: [{ meters: [{ entity: 'sensor.a' }] }] })
+  .cards[0].meters[0].view, 'bar', 'ukazatel vedle hlavni hodnoty ma pruh');
+
+/* --- ktere entity chteji historii --- */
+l = Layout.normalize({
+  cards: [{ view: 'graph', hours: 12, dial: { entity: 'sensor.a' } },
+           { dial: { entity: 'sensor.b' }, tiles: [{ entity: 'sensor.a', view: 'graph', hours: 24 }] }],
+  panels: [{ items: [{ entity: 'sensor.c', view: 'graph', hours: 3 },
+                     { entity: 'sensor.d' }] }]
+});
+const g = Layout.graphed(l);
+assert.deepEqual(g.map(x => x.entity).sort(), ['sensor.a', 'sensor.c']);
+assert.equal(g.find(x => x.entity === 'sensor.a').hours, 24,
+  'jedna entita na dvou mistech si rekne o delsi okno');
+assert.equal(Layout.graphed(Layout.empty()).length, 0, 'bez krivek se server neptá');
 
 /* --- rozsah budiku --- */
 l = Layout.normalize({ cards: [{ dial: { entity: 'sensor.t', min: 30, max: 10 } }] });

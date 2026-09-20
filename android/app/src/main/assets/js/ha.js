@@ -105,6 +105,26 @@ HaConn.prototype.send = function (msg) {
   return id;
 };
 
+/**
+ * Dotaz, na ktery ceka odpoved (napr. historie hodnot pro krivky).
+ * Vraci Promise; kdyz spojeni spadne nebo server mlci, skonci chybou -
+ * krivka pak zustane prazdna a zkusi se za pet minut znovu.
+ */
+HaConn.prototype.request = function (msg) {
+  var self = this;
+  return new Promise(function (resolve, reject) {
+    if (self.status !== 'ready') { reject(new Error('bez spojení')); return; }
+    var id = self.send(msg);
+    if (id < 0) { reject(new Error('zprávu nelze odeslat')); return; }
+    self.pending[id] = { resolve: resolve, reject: reject };
+    setTimeout(function () {
+      if (!self.pending[id]) return;
+      delete self.pending[id];
+      reject(new Error('server neodpověděl'));
+    }, 20000);
+  });
+};
+
 /** Zavola sluzbu (rozsviti svetlo, prepne zasuvku...). */
 HaConn.prototype.callService = function (domain, service, data) {
   if (this.status !== 'ready') return false;
@@ -140,6 +160,13 @@ HaConn.prototype.onMessage = function (ev) {
     return;
   }
   if (msg.type === 'result') {
+    var waiting = this.pending[msg.id];
+    if (waiting) {
+      delete this.pending[msg.id];
+      if (msg.success) waiting.resolve(msg.result);
+      else waiting.reject(new Error((msg.error && msg.error.message) || 'dotaz selhal'));
+      return;
+    }
     if (msg.id === this.statesId) {
       if (msg.success && Array.isArray(msg.result)) {
         this.states = {};
