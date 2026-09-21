@@ -100,12 +100,21 @@ class HaPanelCard extends HTMLElement {
 
   setConfig(config) {
     if (!config) throw new Error('Karta nemá konfiguraci.');
-    if (!config.sections && !config.panels && !config.cards && !config.layout) {
-      throw new Error('Doplň aspoň jednu sekci (sections) nebo panel (panels).');
-    }
     this._config = config;
     this._layout = cardLayout(config);
+    // Prazdna karta neni chyba: presne takova vznikne, kdyz se prida
+    // z nabidky karet nebo kdyz se ve vizualnim editoru smaze posledni
+    // sekce. Misto vyjimky (a cervene karty) ukaze, co s tim.
+    this._prazdna = !Layout.allCards(this._layout).length
+                 && !Layout.allPanels(this._layout).length;
+    this._filled = false;
     this._build();
+  }
+
+  /** Vizuální editor - Home Assistant ho otevře tlačítkem UPRAVIT. */
+  static async getConfigElement() {
+    await nactiPrvkyHA();
+    return document.createElement(CARD_TYPE + '-editor');
   }
 
   set hass(hass) {
@@ -132,17 +141,16 @@ class HaPanelCard extends HTMLElement {
 
   static getStubConfig(hass) {
     var pick = function (dc) {
-      for (var id in hass.states) {
+      for (var id in (hass && hass.states) || {}) {
         var a = hass.states[id].attributes || {};
         if (a.device_class === dc && !isNaN(parseFloat(hass.states[id].state))) return id;
       }
       return '';
     };
-    var teplota = pick('temperature');
-    var stub = { type: 'custom:' + CARD_TYPE, title: '', sections: [], panels: [] };
-    if (teplota) {
-      stub.sections.push({ name: 'TEPLOTA', code: 'T1', tone: 'cyan', entity: teplota });
-    }
+    var stub = { type: 'custom:' + CARD_TYPE, sections: [], panels: [] };
+    var teplota = pick('temperature'), vlhkost = pick('humidity');
+    if (teplota) stub.sections.push({ name: 'TEPLOTA', code: 'T1', tone: 'cyan', entity: teplota });
+    if (vlhkost) stub.sections.push({ name: 'VLHKOST', code: 'H', tone: 'green', entity: vlhkost });
     return stub;
   }
 
@@ -188,6 +196,16 @@ class HaPanelCard extends HTMLElement {
     }
     if (this._config.clock === false && this._view.clock.t) {
       this._view.clock.t.parentNode.style.display = 'none';
+    }
+
+    // Karta bez jedine sekce: misto prazdne plochy rovnou rada, co dal.
+    if (this._prazdna) {
+      var hint = document.createElement('div');
+      hint.className = 'prazdna-karta';
+      hint.innerHTML = '<b>Karta zatím nemá žádnou sekci.</b>'
+        + '<span>Klepni na UPRAVIT a přidej si sekci — nebo si nech '
+        + 'navrhnout rozvržení z entit, které v Home Assistantovi máš.</span>';
+      this._stage.appendChild(hint);
     }
 
     this._tick();
@@ -360,7 +378,7 @@ window.customCards.push({
   type: CARD_TYPE,
   name: 'HA Panel',
   description: 'Velké budíky a dlaždice pro tablet na zdi - stejný vzhled jako aplikace HA Panel.',
-  preview: false,
+  preview: true,
   documentationURL: 'https://github.com/joshuaaaaa/HA-repo'
 });
 

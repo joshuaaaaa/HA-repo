@@ -1,7 +1,8 @@
 # HA Panel — tablet na zdi jako panel pro Home Assistant
 
-Tenhle návod je o **aplikaci pro tablet**. Karta pro Lovelace, balíček
-s pomocníky a blueprinty mají svůj popis v [README](../README.md).
+Tenhle návod je o **aplikaci pro tablet**. Karta pro Lovelace (ta má
+vlastní vizuální editor, takže se nastaví klikáním), balíček s pomocníky
+a blueprinty mají svůj popis v [README](../README.md).
 
 Aplikace si data bere z **Home Assistanta** přes dlouhodobý přístupový
 token, entity si vybíráš sám a sekce si pojmenuješ po svém. Na obrazovce

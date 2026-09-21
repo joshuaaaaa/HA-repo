@@ -38,6 +38,10 @@ function cardCss() {
 #stage{position:absolute;top:0;left:0;transform-origin:top left;height:auto;min-height:0}
 #boot,#organism,#pulse,#toast,#editor,#picker,.overlay,#vhProbe{display:none!important}
 .bg,.scan{position:absolute;inset:0}
+.prazdna-karta{grid-row:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ gap:14px;text-align:center;padding:60px 40px}
+.prazdna-karta b{font-size:44px;letter-spacing:2px;color:#cfe4f2}
+.prazdna-karta span{font:26px var(--mono);color:#7f9db1;max-width:1400px;line-height:1.5}
 `;
   return css;
 }
@@ -58,6 +62,7 @@ const bundle = [
   read(path.join(ASSETS, 'js/feeds.js')),
   read(path.join(ASSETS, 'js/render.js')),
   read(path.join(ROOT, 'src/card/card.js')),
+  read(path.join(ROOT, 'src/card/editor.js')),
   '})();',
   ''
 ].join('\n\n');

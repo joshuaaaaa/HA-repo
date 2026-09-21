@@ -26,7 +26,8 @@ V repozitáři jsou tři části, každá použitelná zvlášť:
 - **Zvonek u dveří:** když čidlo naskočí, panel se probudí a ukáže kameru
   přes celou obrazovku.
 - **Editor přímo na displeji** — entity se vybírají ze seznamu z Home
-  Assistanta, sekce se přejmenovávají, mřížka se nastavuje.
+  Assistanta, sekce se přejmenovávají, mřížka se nastavuje. Karta do
+  Lovelace má vlastní **vizuální editor**, takže se nastaví klikáním.
 - **Klidový režim** s hodinami, buzení pohybem z kamery a ochrana OLED.
 
 ![Okno s ovládáním světla](docs/okno-svetla.png)
@@ -53,10 +54,43 @@ Zdroje → Přidat*, adresa `/hacsfiles/HA-repo/ha-panel-card.js`, typ
    typ **Modul JavaScriptu**
 3. Obnov stránku
 
-### Nastavení karty
+### Nastavení karty — klikáním, bez YAML
 
-Nejkratší možná karta — zbytek si karta domyslí podle druhu čidla (rozsah
-budíku, stupně i popisek):
+Karta má **vlastní vizuální editor**, stejně jako karty vestavěné
+v Home Assistantovi. Na dashboardu dej **Upravit** → **+ Přidat kartu** →
+najdi **HA Panel** (je i v nabídce s náhledem), nebo na hotové kartě
+klepni na **UPRAVIT**. YAML psát nemusíš.
+
+![Vizuální editor karty](docs/editor-karty.png)
+
+Co editor umí:
+
+| Záložka | Co se tam nastaví |
+|---|---|
+| **Sekce** | přidat, přejmenovat, přeskládat (▲▼) i smazat sekci; barva, zobrazení (budík, sloupec, křivka, číslo, kamera, předpověď, kalendář, úkoly), entita, popisek, jednotka, rozsah budíku, **stupně** (hodnota → slovo a barva), **ukazatele** a **dlaždice** |
+| **Panely** | řady dlaždic dole: název, barva, dlaždice s entitou a chováním klepnutí |
+| **Celek** | název a podtitulek, počasí vedle hodin, hodiny zap/vyp, kolik sekcí na řádek, kolik řad, kolik panelů na řádek |
+
+Entita se vybírá ze seznamu, který přišel z Home Assistanta — píše se do
+něj a seznam se filtruje. Pole, která k danému zobrazení nepatří, se
+schovají: u kamery je *Obnovovat po (s)*, u křivky *Křivka za (h)*,
+u kalendáře *Dní dopředu*.
+
+Dvě tlačítka, která ušetří práci:
+
+- **Navrhnout z mých entit** — karta se poskládá sama z teplot, vlhkostí,
+  baterií a světel, které v Home Assistantovi jsou. Pak už jen upravuješ.
+- **Převést na sekce** — objeví se, když má karta vložené rozvržení
+  z aplikace (`layout:`). Převede ho na obyčejné sekce, které jdou dál
+  klikat.
+
+Prázdná karta není chyba: napíše, co s ní, dokud se nepřidá první sekce.
+
+### Nastavení karty v YAML
+
+Kdo chce, může kartu napsat i ručně (editor a YAML jsou zaměnitelné —
+co naklikáš, to je v YAML vidět). Nejkratší možná karta — zbytek si karta
+domyslí podle druhu čidla (rozsah budíku, stupně i popisek):
 
 ```yaml
 type: custom:ha-panel-card
@@ -213,6 +247,7 @@ node tests/control-browser.mjs     # ovládání, okno s jasem, zoom, stupnice
 node tests/pages-browser.mjs       # stránky, přejíždění prstem, zvonek
 node tests/feeds-browser.mjs       # předpověď, kalendář, úkoly, kamery
 node tests/zoom-browser.mjs        # zvětšení sekce a ovládání ve velkém
+node tests/editor-browser.mjs      # vizuální editor karty
 ```
 
 Panel jde vyzkoušet i bez tabletu: naservíruj `android/app/src/main/assets/`
