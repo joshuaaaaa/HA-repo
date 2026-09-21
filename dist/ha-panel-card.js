@@ -2717,6 +2717,7 @@ button:hover{filter:brightness(.97)}
 .pick .radek i{font-style:normal;font-size:12px;color:var(--secondary-text-color,#727272)}
 .varovani{border-left:3px solid var(--warning-color,#ffa600);padding:8px 12px;
  background:var(--secondary-background-color,#fafafa);border-radius:6px}
+.patka{text-align:right;font-size:11px;opacity:.7}
 `;
 
 class HaPanelCardEditor extends HTMLElement {
@@ -2833,6 +2834,10 @@ class HaPanelCardEditor extends HTMLElement {
     if (this._tab === 'sekce') this._tabSekce(wrap);
     else if (this._tab === 'panely') this._tabPanely(wrap);
     else this._tabCelek(wrap);
+
+    // Verze je tu schvalne videt: kdyz se v Home Assistantovi drzi stary
+    // soubor z mezipameti, je to jediny zpusob, jak to poznat.
+    wrap.appendChild(e('p', 'hint patka', 'HA Panel — karta ' + CARD_VERSION));
   }
 
   /* ---------- záložka Sekce ---------- */

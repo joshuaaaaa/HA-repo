@@ -86,6 +86,25 @@ Dvě tlačítka, která ušetří práci:
 
 Prázdná karta není chyba: napíše, co s ní, dokud se nepřidá první sekce.
 
+#### Nevidím vizuální editor („Visual editor not supported")
+
+Home Assistant drží starou verzi karty z mezipaměti. Poznáš to podle
+YAML: stará verze psala do nové karty `title: ''`, a v editoru chybí
+řádek s číslem verze (nová píše dole *HA Panel — karta 1.1.0*).
+V konzoli prohlížeče (F12) se při načtení vypíše `HA-PANEL-CARD 1.1.0`.
+
+Vizuální editor je od verze **1.1.0**. Když tam není:
+
+1. HACS → **HA Panel** → ⋮ → **Znovu stáhnout** (*Redownload*), vyber
+   nejnovější verzi / větev `main`.
+2. **Restartuj Home Assistanta** (kvůli zdrojům dashboardu).
+3. V prohlížeči **Ctrl+Shift+R** (na tabletu v aplikaci HA:
+   *Nastavení → Společnost → Vyprázdnit mezipaměť frontendu*).
+4. Pořád nic? Zkontroluj zdroj v *Nastavení → Dashboardy → ⋮ → Zdroje* —
+   má ukazovat na `/hacsfiles/HA-repo/ha-panel-card.js` a mít typ
+   **Modul JavaScriptu**. Starý ruční zdroj v `/local/` může přebíjet
+   ten z HACS; nech jen jeden.
+
 ### Nastavení karty v YAML
 
 Kdo chce, může kartu napsat i ručně (editor a YAML jsou zaměnitelné —
